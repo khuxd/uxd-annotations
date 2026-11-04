@@ -1,6 +1,5 @@
 {
   "name": "uxd-annotations",
-  "id": "1699952740738052733",
   "version": "0.1.0",
   "description": "Canvas annotations with category tags, status tracking and a generated summary table.",
   "main": "code.js",
