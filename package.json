@@ -1,0 +1,36 @@
+{
+  "name": "qxr-annotations",
+  "version": "0.1.0",
+  "description": "Canvas annotations with category tags, status tracking and a generated summary table.",
+  "main": "code.js",
+  "scripts": {
+    "build": "esbuild src/code.ts --bundle --outfile=code.js --target=es6",
+    "watch": "esbuild src/code.ts --bundle --outfile=code.js --target=es6 --watch=forever",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --no-warnings --test tests/*.test.ts",
+    "lint": "eslint --ext .ts --ignore-pattern node_modules src/",
+    "lint:fix": "eslint --ext .ts --ignore-pattern node_modules --fix src/"
+  },
+  "devDependencies": {
+    "@figma/eslint-plugin-figma-plugins": "*",
+    "@figma/plugin-typings": "*",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "esbuild": "^0.27.3",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2"
+  },
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@figma/figma-plugins/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": { "project": "./tsconfig.json" },
+    "root": true,
+    "rules": {
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }]
+    }
+  }
+}

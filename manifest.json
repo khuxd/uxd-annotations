@@ -1,0 +1,13 @@
+{
+  "name": "UXD Annotations",
+  "id": "0000000000000000000",
+  "api": "1.0.0",
+  "main": "code.js",
+  "capabilities": [],
+  "permissions": ["currentuser"],
+  "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
+  "editorType": ["figma"],
+  "ui": "ui.html",
+  "networkAccess": { "allowedDomains": ["https://*.figma.com", "https://*.amazonaws.com"], "reasoning": "Loads the current user's Figma profile photo for note avatars." }
+}

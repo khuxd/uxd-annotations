@@ -1,0 +1,8 @@
+node_modules
+*.log
+out/
+dist/
+code.js
+.env
+.env.*
+.DS_Store
