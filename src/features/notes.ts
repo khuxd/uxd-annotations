@@ -250,10 +250,35 @@ export async function addNote(text: string, categoryId: string, direction: Direc
   setData(card, KEY.sig, signature(card, target));
 }
 
+/** Notes made under an earlier plugin ID keep their data as private plugin data, which this ID cannot read,
+ *  so they look untagged. Recognise them by shape (a "Note · …" card holding 'text' and 'category' layers
+ *  inside the container) and re-tag them as shared data. The target/offset were in the unreadable data and
+ *  can't be recovered, so these notes show "(missing layer)" until re-attached by the user. Idempotent. */
+async function recoverOrphanedNotes(page: PageNode): Promise<void> {
+  const container = page.findChild((n) => n.name === CONTAINER_NAME && n.type === 'FRAME') as FrameNode | null;
+  if (!container) return;
+  const orphans = container.findChildren(
+    (n) => n.type === 'FRAME' && n.name.indexOf('Note · ') === 0 && getData(n, KEY.note) !== '1' &&
+      !!(n as FrameNode).findOne((c) => c.type === 'TEXT' && c.name === 'text') &&
+      !!(n as FrameNode).findOne((c) => c.type === 'TEXT' && c.name === 'category'),
+  ) as FrameNode[];
+  if (!orphans.length) return;
+  const categories = await loadCategories();
+  for (const note of orphans) {
+    const label = (note.findOne((c) => c.type === 'TEXT' && c.name === 'category') as TextNode).characters;
+    const category = categories.find((c) => c.name === label);
+    setData(note, KEY.note, '1');
+    if (category) setData(note, KEY.cat, category.id);
+    setData(note, KEY.status, note.opacity < 1 ? 'done' : 'todo');
+    setData(note, KEY.style, 'straight'); // notes from before pointer styles existed were straight
+  }
+}
+
 /** Every note on a page, found by its data tag rather than by where it sits, so notes are picked up
  *  even if they were moved out of the hidden container or created by another copy of the plugin. */
 export async function findNotes(page: PageNode): Promise<FrameNode[]> {
   await page.loadAsync();
+  await recoverOrphanedNotes(page);
   const shared = page.findAllWithCriteria({ types: ['FRAME'], sharedPluginData: { namespace: DATA_NAMESPACE, keys: [KEY.note] } });
   const legacy = page.findAllWithCriteria({ types: ['FRAME'], pluginData: { keys: [KEY.note] } }); // written by earlier versions
   const seen = new Set<string>();
