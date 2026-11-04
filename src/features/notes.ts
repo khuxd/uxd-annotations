@@ -3,7 +3,8 @@
 
 import type { Category, Direction, NoteStatus, NoteSummary, PointerStyle } from '../types';
 import { hexToRgb, topLevelAncestor } from '../utils';
-import { loadCategories } from './categories';
+import { ensureCategoriesInFile, loadCategories } from './categories';
+import { DATA_NAMESPACE, getData, setData } from './data';
 import { clampDistance, DEFAULT_NOTE_DISTANCE } from './preferences';
 import { pointerPoints, toPathData } from './pointer';
 import { computeCardPosition, inferPlacement } from './placement';
@@ -32,7 +33,7 @@ async function getContainer(): Promise<FrameNode> {
 }
 
 export function getNotes(container: FrameNode): FrameNode[] {
-  return container.findChildren((n) => n.type === 'FRAME' && n.getPluginData(KEY.note) === '1') as FrameNode[];
+  return container.findChildren((n) => n.type === 'FRAME' && getData(n, KEY.note) === '1') as FrameNode[];
 }
 
 function noteText(note: FrameNode): string {
@@ -41,7 +42,7 @@ function noteText(note: FrameNode): string {
 }
 
 function statusOf(note: FrameNode): NoteStatus {
-  return note.getPluginData(KEY.status) === 'done' ? 'done' : 'todo';
+  return getData(note, KEY.status) === 'done' ? 'done' : 'todo';
 }
 
 /** Geometry fingerprint: lets resync skip untouched notes, so its own writes can't retrigger it forever. */
@@ -60,7 +61,7 @@ function drawLine(container: FrameNode, note: FrameNode, target: SceneNode, exis
   }
   const color = note.strokes.length ? note.strokes : [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } } as Paint];
   // Notes made before pointer styles existed have no saved style: keep them straight.
-  const style: PointerStyle = note.getPluginData(KEY.style) === 'elbow' ? 'elbow' : 'straight';
+  const style: PointerStyle = getData(note, KEY.style) === 'elbow' ? 'elbow' : 'straight';
   const points = tb && nb ? pointerPoints(style, nb, tb) : [{ x: 0, y: 0 }, { x: 0, y: 0 }];
   const end = points[points.length - 1];
 
@@ -224,6 +225,7 @@ export async function addNote(text: string, categoryId: string, direction: Direc
   const target = figma.currentPage.selection[0];
   if (!target) throw new Error('Select a layer to annotate first.');
   if (!text.trim()) throw new Error('Enter some note text.');
+  await ensureCategoriesInFile();
   const categories = await loadCategories();
   const category = categories.find((c) => c.id === categoryId) ?? categories[0];
   const container = await getContainer();
@@ -236,24 +238,38 @@ export async function addNote(text: string, categoryId: string, direction: Direc
   card.x = pos.x;
   card.y = pos.y;
   card.locked = false;
-  card.setPluginData(KEY.note, '1');
-  card.setPluginData(KEY.target, target.id);
-  card.setPluginData(KEY.cat, category.id);
-  card.setPluginData(KEY.status, 'todo');
-  card.setPluginData(KEY.style, pointerStyle);
-  card.setPluginData(KEY.dx, String(card.x - tb.x));
-  card.setPluginData(KEY.dy, String(card.y - tb.y));
+  setData(card, KEY.note, '1');
+  setData(card, KEY.target, target.id);
+  setData(card, KEY.cat, category.id);
+  setData(card, KEY.status, 'todo');
+  setData(card, KEY.style, pointerStyle);
+  setData(card, KEY.dx, String(card.x - tb.x));
+  setData(card, KEY.dy, String(card.y - tb.y));
   const line = drawLine(container, card, target);
-  card.setPluginData(KEY.line, line.id);
-  card.setPluginData(KEY.sig, signature(card, target));
+  setData(card, KEY.line, line.id);
+  setData(card, KEY.sig, signature(card, target));
+}
+
+/** Every note on a page, found by its data tag rather than by where it sits, so notes are picked up
+ *  even if they were moved out of the hidden container or created by another copy of the plugin. */
+export async function findNotes(page: PageNode): Promise<FrameNode[]> {
+  await page.loadAsync();
+  const shared = page.findAllWithCriteria({ types: ['FRAME'], sharedPluginData: { namespace: DATA_NAMESPACE, keys: [KEY.note] } });
+  const legacy = page.findAllWithCriteria({ types: ['FRAME'], pluginData: { keys: [KEY.note] } }); // written by earlier versions
+  const seen = new Set<string>();
+  return [...shared, ...legacy].filter((n) => {
+    if (seen.has(n.id) || getData(n, KEY.note) !== '1') return false;
+    seen.add(n.id);
+    return true;
+  });
 }
 
 export async function summariseNotes(page: PageNode = figma.currentPage): Promise<NoteSummary[]> {
-  const container = page.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
-  if (!container) return [];
   const out: NoteSummary[] = [];
-  for (const note of getNotes(container)) {
-    const target = await figma.getNodeByIdAsync(note.getPluginData(KEY.target));
+  // Resolve before looping: `for (x of await …)` compiles to a form Figma's plugin engine can mis-execute.
+  const notes = await findNotes(page);
+  for (const note of notes) {
+    const target = await figma.getNodeByIdAsync(getData(note, KEY.target));
     const frame = target ? topLevelAncestor(target) : null;
     const tb = target && 'absoluteBoundingBox' in target ? target.absoluteBoundingBox : null;
     const nb = note.absoluteBoundingBox;
@@ -261,13 +277,13 @@ export async function summariseNotes(page: PageNode = figma.currentPage): Promis
     out.push({
       id: note.id,
       text: noteText(note),
-      categoryId: note.getPluginData(KEY.cat),
+      categoryId: getData(note, KEY.cat),
       status: statusOf(note),
       targetId: target?.id ?? '',
       targetName: target && 'name' in target ? target.name : '(missing layer)',
       frameName: frame?.name ?? 'Unassigned',
       pageName: page.name,
-      pointerStyle: note.getPluginData(KEY.style) === 'elbow' ? 'elbow' : 'straight',
+      pointerStyle: getData(note, KEY.style) === 'elbow' ? 'elbow' : 'straight',
       direction: placement.direction,
       distance: placement.distance,
     });
@@ -278,14 +294,14 @@ export async function summariseNotes(page: PageNode = figma.currentPage): Promis
 export async function setStatus(noteId: string, status: NoteStatus): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);
   if (!note || note.type !== 'FRAME') return;
-  note.setPluginData(KEY.status, status);
+  setData(note, KEY.status, status);
   note.opacity = status === 'done' ? 0.5 : 1;
 }
 
 /** Re-categorise an existing note: card header, border, label and pointer all take the new colour. */
 export async function setNoteCategory(noteId: string, categoryId: string): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);
-  if (!note || note.type !== 'FRAME' || note.getPluginData(KEY.note) !== '1') return;
+  if (!note || note.type !== 'FRAME' || getData(note, KEY.note) !== '1') return;
   const category = (await loadCategories()).find((c) => c.id === categoryId);
   if (!category) throw new Error('That category no longer exists.');
 
@@ -297,25 +313,25 @@ export async function setNoteCategory(noteId: string, categoryId: string): Promi
   if (header) header.fills = solid(accent);
   note.strokes = solid(accent);
   note.name = `Note · ${category.name}`;
-  note.setPluginData(KEY.cat, category.id);
+  setData(note, KEY.cat, category.id);
 
   // The pointer takes its colour from the card border, so redraw it.
   const container = note.parent;
-  const target = await figma.getNodeByIdAsync(note.getPluginData(KEY.target));
+  const target = await figma.getNodeByIdAsync(getData(note, KEY.target));
   if (container && container.type === 'FRAME' && target && !target.removed && 'absoluteBoundingBox' in target) {
-    const existing = (await figma.getNodeByIdAsync(note.getPluginData(KEY.line))) as SceneNode | null;
+    const existing = (await figma.getNodeByIdAsync(getData(note, KEY.line))) as SceneNode | null;
     const line = drawLine(container, note, target as SceneNode, existing || undefined);
-    note.setPluginData(KEY.line, line.id);
-    note.setPluginData(KEY.sig, signature(note, target as SceneNode));
+    setData(note, KEY.line, line.id);
+    setData(note, KEY.sig, signature(note, target as SceneNode));
   }
 }
 
 /** Move an existing note to a new side/distance of its target and redraw its line. */
 export async function setNotePlacement(noteId: string, direction: Direction, distance: number): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);
-  if (!note || note.type !== 'FRAME' || note.getPluginData(KEY.note) !== '1') return;
+  if (!note || note.type !== 'FRAME' || getData(note, KEY.note) !== '1') return;
   const container = note.parent;
-  const target = await figma.getNodeByIdAsync(note.getPluginData(KEY.target));
+  const target = await figma.getNodeByIdAsync(getData(note, KEY.target));
   const tb = target && !target.removed && 'absoluteBoundingBox' in target ? target.absoluteBoundingBox : null;
   if (!container || container.type !== 'FRAME' || !target || !tb) {
     throw new Error('Cannot move: the annotated layer no longer exists.');
@@ -323,28 +339,28 @@ export async function setNotePlacement(noteId: string, direction: Direction, dis
   const pos = computeCardPosition(note, tb, direction, clampDistance(distance));
   note.x = pos.x;
   note.y = pos.y;
-  note.setPluginData(KEY.dx, String(note.x - tb.x));
-  note.setPluginData(KEY.dy, String(note.y - tb.y));
-  const existing = (await figma.getNodeByIdAsync(note.getPluginData(KEY.line))) as SceneNode | null;
+  setData(note, KEY.dx, String(note.x - tb.x));
+  setData(note, KEY.dy, String(note.y - tb.y));
+  const existing = (await figma.getNodeByIdAsync(getData(note, KEY.line))) as SceneNode | null;
   const line = drawLine(container, note, target as SceneNode, existing || undefined);
-  note.setPluginData(KEY.line, line.id);
-  note.setPluginData(KEY.sig, signature(note, target as SceneNode));
+  setData(note, KEY.line, line.id);
+  setData(note, KEY.sig, signature(note, target as SceneNode));
 }
 
 /** Change an existing note's pointer style and redraw its line immediately. */
 export async function setNotePointerStyle(noteId: string, style: PointerStyle): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);
-  if (!note || note.type !== 'FRAME' || note.getPluginData(KEY.note) !== '1') return;
+  if (!note || note.type !== 'FRAME' || getData(note, KEY.note) !== '1') return;
   const container = note.parent;
-  const target = await figma.getNodeByIdAsync(note.getPluginData(KEY.target));
+  const target = await figma.getNodeByIdAsync(getData(note, KEY.target));
   if (!container || container.type !== 'FRAME' || !target || target.removed || !('absoluteBoundingBox' in target)) {
     throw new Error('Cannot restyle: the annotated layer no longer exists.');
   }
-  note.setPluginData(KEY.style, style);
-  const existing = (await figma.getNodeByIdAsync(note.getPluginData(KEY.line))) as SceneNode | null;
+  setData(note, KEY.style, style);
+  const existing = (await figma.getNodeByIdAsync(getData(note, KEY.line))) as SceneNode | null;
   const line = drawLine(container, note, target as SceneNode, existing || undefined);
-  note.setPluginData(KEY.line, line.id);
-  note.setPluginData(KEY.sig, signature(note, target as SceneNode));
+  setData(note, KEY.line, line.id);
+  setData(note, KEY.sig, signature(note, target as SceneNode));
 }
 
 export async function gotoNote(noteId: string): Promise<void> {
@@ -358,7 +374,7 @@ export async function gotoNote(noteId: string): Promise<void> {
 export async function deleteNote(noteId: string): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);
   if (!note || note.type !== 'FRAME') return;
-  const line = await figma.getNodeByIdAsync(note.getPluginData(KEY.line));
+  const line = await figma.getNodeByIdAsync(getData(note, KEY.line));
   if (line && !line.removed) line.remove();
   note.remove();
 }
@@ -369,22 +385,22 @@ export async function resync(): Promise<number> {
   if (!container) return 0;
   let fixed = 0;
   for (const note of getNotes(container)) {
-    const target = await figma.getNodeByIdAsync(note.getPluginData(KEY.target));
+    const target = await figma.getNodeByIdAsync(getData(note, KEY.target));
     if (!target || target.removed || !('absoluteBoundingBox' in target) || !target.absoluteBoundingBox) continue;
     const tb = target.absoluteBoundingBox;
-    const nx = tb.x + Number(note.getPluginData(KEY.dx));
-    const ny = tb.y + Number(note.getPluginData(KEY.dy));
+    const nx = tb.x + Number(getData(note, KEY.dx));
+    const ny = tb.y + Number(getData(note, KEY.dy));
     if (note.x !== nx || note.y !== ny) {
       note.x = nx;
       note.y = ny;
       fixed++;
     }
-    const existing = (await figma.getNodeByIdAsync(note.getPluginData(KEY.line))) as SceneNode | null;
+    const existing = (await figma.getNodeByIdAsync(getData(note, KEY.line))) as SceneNode | null;
     const sig = signature(note, target as SceneNode);
-    if (existing && !existing.removed && note.getPluginData(KEY.sig) === sig) continue;
+    if (existing && !existing.removed && getData(note, KEY.sig) === sig) continue;
     const line = drawLine(container, note, target as SceneNode, existing || undefined);
-    note.setPluginData(KEY.line, line.id);
-    note.setPluginData(KEY.sig, sig);
+    setData(note, KEY.line, line.id);
+    setData(note, KEY.sig, sig);
   }
   return fixed;
 }

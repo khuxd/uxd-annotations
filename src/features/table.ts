@@ -4,6 +4,7 @@
 import type { BuildTableOptions, NoteSummary } from '../types';
 import { hexToRgb, progress } from '../utils';
 import { loadCategories } from './categories';
+import { getData, setData } from './data';
 import { summariseNotes } from './notes';
 
 const TABLE_NAME = 'Annotation Summary';
@@ -48,7 +49,7 @@ interface TableMeta extends BuildTableOptions {
 
 function readMeta(table: FrameNode): TableMeta | null {
   try {
-    const raw = table.getPluginData(META_KEY);
+    const raw = getData(table, META_KEY);
     const meta = raw ? (JSON.parse(raw) as Partial<TableMeta>) : null;
     if (!meta || (meta.scope !== 'all-pages' && meta.scope !== 'this-page')) return null;
     if (meta.destination !== 'summary-page' && meta.destination !== 'current-page') return null;
@@ -123,7 +124,7 @@ async function renderTable(meta: TableMeta, interactive: boolean): Promise<{ cou
 
   const table = figma.createFrame();
   table.name = TABLE_NAME;
-  table.setPluginData(META_KEY, JSON.stringify(meta));
+  setData(table, META_KEY, JSON.stringify(meta));
   table.layoutMode = 'VERTICAL';
   table.primaryAxisSizingMode = 'AUTO';
   table.counterAxisSizingMode = 'AUTO';

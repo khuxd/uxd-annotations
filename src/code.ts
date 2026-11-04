@@ -7,6 +7,7 @@ import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
 import { addNote, deleteNote, getNotes, gotoNote, KEY, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
 import { loadDistance, loadPointerStyle, saveDistance, savePointerStyle } from './features/preferences';
+import { getData, setData } from './features/data';
 import { buildTable, refreshTables, tableState } from './features/table';
 
 figma.showUI(__html__, { width: 360, height: 560, title: 'UXD Annotations', themeColors: true });
@@ -65,12 +66,12 @@ async function onNodeChange(event: NodeChangeEvent): Promise<void> {
       // The user edited a note's text on the canvas: refresh the panel from the card.
       if (node.type === 'TEXT' && node.name === 'text' && isInside(node, container) && change.properties.indexOf('characters') !== -1) textEdited = true;
       const moved = change.properties.indexOf('x') !== -1 || change.properties.indexOf('y') !== -1;
-      if (moved && node.type === 'FRAME' && node.getPluginData(KEY.note) === '1') {
-        const target = await figma.getNodeByIdAsync(node.getPluginData(KEY.target));
+      if (moved && node.type === 'FRAME' && getData(node, KEY.note) === '1') {
+        const target = await figma.getNodeByIdAsync(getData(node, KEY.target));
         const tb = target && 'absoluteBoundingBox' in target ? target.absoluteBoundingBox : null;
         if (tb) {
-          node.setPluginData(KEY.dx, String(node.x - tb.x));
-          node.setPluginData(KEY.dy, String(node.y - tb.y));
+          setData(node, KEY.dx, String(node.x - tb.x));
+          setData(node, KEY.dy, String(node.y - tb.y));
         }
       }
     }
