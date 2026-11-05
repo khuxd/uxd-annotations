@@ -155,10 +155,12 @@ async function renderTable(meta: TableMeta, interactive: boolean): Promise<{ cou
   for (const pageName of pageNames) {
     const pageNotes = notes.filter((n) => n.pageName === pageName);
     if (showPages) table.appendChild(cell(`${pageName} (${pageNotes.length})`, TABLE_INNER_WIDTH, true, undefined, 13));
-    const frames = Array.from(new Set(pageNotes.map((n) => n.frameName)));
+    // Frames are often all called "Frame", so say whether each one lays out as a row or a column.
+    const frameLabel = (n: NoteSummary): string => (n.frameLayout ? `${n.frameName} (${n.frameLayout})` : n.frameName);
+    const frames = Array.from(new Set(pageNotes.map(frameLabel)));
     for (const frameName of frames) {
       table.appendChild(cell(frameName, TABLE_INNER_WIDTH, true, '666666'));
-      for (const n of pageNotes.filter((x) => x.frameName === frameName)) {
+      for (const n of pageNotes.filter((x) => frameLabel(x) === frameName)) {
         const cat = categories.find((c) => c.id === n.categoryId);
         const r = row();
         r.appendChild(cell(cat ? cat.name : 'Uncategorised', COLS[0].width, true, cat ? cat.color : undefined));
