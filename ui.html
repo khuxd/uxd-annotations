@@ -340,8 +340,8 @@
     const n = state.notes.length;
     $('scope-hint').textContent = document.querySelector('input[name=tscope]:checked').value === 'this-page'
       ? `${n} annotation${n === 1 ? '' : 's'} on this page.`
-      : 'Every page except the Annotation Summary page.';
-    $('dest-hint').textContent = (exists ? 'Replaces the existing table' : 'Creates a table') + (dest === 'summary-page' ? ' on the “Annotation Summary” page.' : ' on this page.');
+      : 'Every page except the summary page.';
+    $('dest-hint').textContent = (exists ? 'Replaces the existing table' : 'Creates a table') + (dest === 'summary-page' ? ' on the summary page.' : ' on this page.');
   }
   document.querySelectorAll('input[name=tdest], input[name=tscope]').forEach((r) => r.addEventListener('change', renderTableButton));
 

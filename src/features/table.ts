@@ -9,6 +9,7 @@ import { summariseNotes } from './notes';
 
 const TABLE_NAME = 'Annotation Summary';
 const META_KEY = 'qxr-table-meta';
+const SUMMARY_PAGE_KEY = 'qxr-summary-page';
 export const SUMMARY_PAGE_NAME = 'Annotation Summary';
 const FONT: FontName = { family: 'Inter', style: 'Regular' };
 const FONT_BOLD: FontName = { family: 'Inter', style: 'Semi Bold' };
@@ -69,7 +70,7 @@ async function collectNotes(meta: TableMeta, interactive: boolean): Promise<Note
   // dynamic-page access: every page must be loaded before its contents can be read.
   if (interactive) progress(5, 'Loading all pages…');
   await figma.loadAllPagesAsync();
-  const pages = figma.root.children.filter((p) => p.name !== SUMMARY_PAGE_NAME);
+  const pages = figma.root.children.filter((p) => !isSummaryPage(p));
   const all: NoteSummary[] = [];
   for (let i = 0; i < pages.length; i++) {
     if (interactive) progress(10 + Math.round((80 * i) / pages.length), `Reading ${pages[i].name}…`);
@@ -78,8 +79,18 @@ async function collectNotes(meta: TableMeta, interactive: boolean): Promise<Note
   return all;
 }
 
+/** The summary page is recognised by a tag, not its name, so renaming it doesn't make us create another.
+ *  A page that still has the default name but no tag (made by an earlier version) is adopted and tagged. */
+function isSummaryPage(p: PageNode): boolean {
+  return getData(p, SUMMARY_PAGE_KEY) === '1';
+}
+
 function findSummaryPage(): PageNode | undefined {
-  return figma.root.children.find((p) => p.name === SUMMARY_PAGE_NAME);
+  const tagged = figma.root.children.find(isSummaryPage);
+  if (tagged) return tagged;
+  const byName = figma.root.children.find((p) => p.name === SUMMARY_PAGE_NAME);
+  if (byName) setData(byName, SUMMARY_PAGE_KEY, '1');
+  return byName;
 }
 
 async function getDestinationPage(destination: BuildTableOptions['destination']): Promise<PageNode> {
@@ -88,6 +99,7 @@ async function getDestinationPage(destination: BuildTableOptions['destination'])
   if (existing) return existing;
   const page = figma.createPage();
   page.name = SUMMARY_PAGE_NAME;
+  setData(page, SUMMARY_PAGE_KEY, '1');
   return page;
 }
 
