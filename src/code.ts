@@ -5,7 +5,7 @@
 import type { PluginMessage } from './types';
 import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
-import { addNote, deleteNote, getNotes, gotoNote, KEY, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
+import { addNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
 import { loadDistance, loadPointerStyle, saveDistance, savePointerStyle } from './features/preferences';
 import { getData, setData } from './features/data';
 import { buildTable, refreshTables, tableState } from './features/table';
@@ -37,6 +37,9 @@ function isInside(node: BaseNode, ancestor: BaseNode): boolean {
 }
 
 async function pushState(): Promise<void> {
+  const current = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
+  knownNoteIds = current ? noteIds(current) : '';
+  if (tableNoteIds === null) tableNoteIds = knownNoteIds;
   sendToUI({
     type: 'state',
     categories: await loadCategories(),
@@ -53,13 +56,68 @@ figma.on('selectionchange', () => void pushState());
 // Self-healing: when a target moves, re-anchor notes. When the user drags a
 // note itself, remember its new offset instead of snapping it back.
 let syncing = false;
+let knownNoteIds = '';
+let tableNoteIds: string | null = null; // notes as of the last table refresh
+function noteIds(container: FrameNode): string {
+  return getNotes(container).map((n) => n.id).sort().join(',');
+}
+
+// Plugin edits join the undo history, so cleaning up the instant a note is deleted would make the user's
+// first Cmd+Z undo our cleanup instead of their delete. Wait, so a quick undo finds nothing to revert, then
+// sweep: pointers whose note is still gone are removed and the tables refreshed.
+const CLEANUP_DELAY_MS = 5000;
+let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+async function sweep(): Promise<void> {
+  cleanupTimer = null;
+  const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
+  let removed = 0;
+  if (container) {
+    syncing = true; // don't let the change handler resync notes while we're mid-sweep
+    try {
+      removed += await removeNotesWithMissingTargets(container); // the layer a note pointed at was deleted
+      removed += removeOrphanPointers(container); // the note itself was deleted
+    } finally {
+      syncing = false;
+    }
+  }
+  const ids = container ? noteIds(container) : '';
+  if (removed > 0 || ids !== tableNoteIds) {
+    tableNoteIds = ids;
+    await pushState();
+    scheduleTableRefresh();
+  }
+}
+
+function scheduleCleanup(): void {
+  if (cleanupTimer !== null) clearTimeout(cleanupTimer);
+  cleanupTimer = setTimeout(() => void sweep(), CLEANUP_DELAY_MS);
+}
+
 async function onNodeChange(event: NodeChangeEvent): Promise<void> {
   if (syncing) return;
   const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
-  if (!container) return;
+  const membership = event.nodeChanges.some((c) => c.type === 'DELETE' || c.type === 'CREATE');
+  if (!container) {
+    if (membership && knownNoteIds) {
+      knownNoteIds = '';
+      await pushState();
+      scheduleCleanup();
+    }
+    return;
+  }
   syncing = true;
   let textEdited = false;
   try {
+    // A note was deleted (or brought back by undo): update the panel now, tidy the document later.
+    if (membership) {
+      const ids = noteIds(container);
+      if (ids !== knownNoteIds) {
+        knownNoteIds = ids;
+        await pushState();
+      }
+      // Always schedule: the selection change from deleting a selected note can update knownNoteIds first.
+      scheduleCleanup();
+    }
     for (const change of event.nodeChanges) {
       if (change.type !== 'PROPERTY_CHANGE' || change.node.removed) continue;
       const node = change.node;

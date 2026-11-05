@@ -58,6 +58,19 @@
   .seg label:has(input:checked) { background: var(--accent); color: var(--on-accent); font-weight: 600; }
   .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
   .seg.two { grid-template-columns: repeat(2, 1fr); }
+  .seg.three { grid-template-columns: repeat(3, 1fr); }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin: -12px -12px 12px; padding: 0 12px; position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  .tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--text-2); padding: 10px 10px 8px; font-weight: 500; }
+  .tab[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab .badge { background: var(--surface); border-radius: 99px; padding: 0 6px; font-size: 10px; margin-left: 4px; }
+  .panel[hidden] { display: none; }
+  .filters { display: flex; flex-direction: column; gap: var(--space); margin-bottom: var(--space); }
+  .filters select { width: 100%; }
+  .field-legend { color: var(--text-2); margin-bottom: 4px; padding: 0; }
+  .req { color: var(--error); font-weight: 600; }
+  .req-note { color: var(--text-2); font-size: 10px; margin-left: 2px; }
+  .hint { color: var(--text-2); font-size: 11px; margin-top: 4px; }
+  fieldset { border: 0; min-width: 0; }
   .placement { grid-column: 1 / 4; display: flex; flex-direction: column; gap: var(--space); border-top: 1px solid var(--border); padding-top: var(--space); }
   .placement .seg label { padding: 4px 0; }
   details.section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 8px; }
@@ -67,7 +80,13 @@
 </style>
 </head>
 <body>
-  <h2>Add note</h2>
+  <div class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" id="tab-add" aria-controls="panel-add" aria-selected="true" type="button">Add</button>
+    <button class="tab" role="tab" id="tab-notes" aria-controls="panel-notes" aria-selected="false" tabindex="-1" type="button">Notes<span class="badge" id="count" hidden></span></button>
+    <button class="tab" role="tab" id="tab-table" aria-controls="panel-table" aria-selected="false" tabindex="-1" type="button">Generate table</button>
+  </div>
+
+  <section class="panel" id="panel-add" role="tabpanel" aria-labelledby="tab-add">
   <form id="add" class="stack">
     <div class="dd" id="dd">
       <label id="cat-label" for="cat-btn">Category</label>
@@ -99,26 +118,13 @@
         <input type="number" id="distance" min="0" max="2000" step="10" value="60" style="width:72px" />
       </div>
     </div>
-    <div><label for="text">Note</label><textarea id="text" placeholder="Describe the behaviour, content or hand-off detail…"></textarea></div>
+    <div>
+      <label for="text">Annotation text <span class="req" aria-hidden="true">*</span> <span class="req-note">Required</span></label>
+      <textarea id="text" required aria-required="true" aria-describedby="text-hint" placeholder="Describe the behaviour, content or hand-off detail…"></textarea>
+      <p class="hint" id="text-hint">Shown on the annotation card and in the summary table.</p>
+    </div>
     <button class="primary" type="submit" id="add-btn" disabled>Annotate selected layer</button>
   </form>
-
-  <h2>Notes <span id="count"></span></h2>
-  <div id="notes" class="stack" aria-live="polite"></div>
-  <div class="stack" style="margin-top:8px">
-    <div class="seg two" role="radiogroup" aria-label="Which pages to include">
-      <label><input type="radio" name="tscope" value="all-pages" checked /> All pages</label>
-      <label><input type="radio" name="tscope" value="this-page" /> This page</label>
-    </div>
-    <div class="seg two" role="radiogroup" aria-label="Where to put the table">
-      <label><input type="radio" name="tdest" value="summary-page" checked /> Summary page</label>
-      <label><input type="radio" name="tdest" value="current-page" /> Current page</label>
-    </div>
-  </div>
-  <div class="row" style="margin-top:8px">
-    <button id="table-btn" type="button">Build summary table</button>
-    <button id="resync-btn" type="button">Re-anchor</button>
-  </div>
 
   <details class="section" id="cats-section">
     <summary>Manage categories <span id="cats-count"></span></summary>
@@ -128,6 +134,42 @@
       <button id="save-cats" type="button">Save</button>
     </div>
   </details>
+  </section>
+
+  <section class="panel" id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+    <div class="filters">
+      <div class="seg three" role="radiogroup" aria-label="Filter by status">
+        <label><input type="radio" name="fstatus" value="all" checked /> All</label>
+        <label><input type="radio" name="fstatus" value="todo" /> To do</label>
+        <label><input type="radio" name="fstatus" value="done" /> Done</label>
+      </div>
+      <select id="fcat" aria-label="Filter by category"></select>
+    </div>
+    <div id="notes" class="stack" aria-live="polite"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="resync-btn" type="button" title="Move every note back to its saved distance from its layer">Re-anchor notes</button>
+    </div>
+  </section>
+
+  <section class="panel stack" id="panel-table" role="tabpanel" aria-labelledby="tab-table" hidden>
+    <fieldset>
+      <legend class="field-legend">Annotations to include</legend>
+      <div class="seg two" role="radiogroup" aria-label="Which pages to include">
+        <label><input type="radio" name="tscope" value="all-pages" checked /> All pages</label>
+        <label><input type="radio" name="tscope" value="this-page" /> This page</label>
+      </div>
+      <p class="hint" id="scope-hint"></p>
+    </fieldset>
+    <fieldset>
+      <legend class="field-legend">Put the table on</legend>
+      <div class="seg two" role="radiogroup" aria-label="Where to put the table">
+        <label><input type="radio" name="tdest" value="summary-page" checked /> Summary page</label>
+        <label><input type="radio" name="tdest" value="current-page" /> Current page</label>
+      </div>
+      <p class="hint" id="dest-hint"></p>
+    </fieldset>
+    <button class="primary" id="table-btn" type="button">Build summary table</button>
+  </section>
 
   <p id="status" role="status"></p>
 
@@ -214,10 +256,47 @@
     return el('div', { className: 'placement' }, el('label', {}, 'Category', catSelect), group, el('div', { className: 'row' }, el('span', { textContent: 'Distance (px)' }), dist, apply));
   }
 
+  // ── Tabs ──
+  const TABS = ['add', 'notes', 'table'];
+  function showTab(name, focus) {
+    TABS.forEach((t) => {
+      const on = t === name;
+      $('tab-' + t).setAttribute('aria-selected', String(on));
+      $('tab-' + t).tabIndex = on ? 0 : -1;
+      $('panel-' + t).hidden = !on;
+    });
+    if (focus) $('tab-' + name).focus();
+  }
+  TABS.forEach((t, i) => {
+    $('tab-' + t).addEventListener('click', () => showTab(t));
+    $('tab-' + t).addEventListener('keydown', (e) => {
+      const next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
+      if (next === null) return;
+      e.preventDefault();
+      showTab(TABS[(next + TABS.length) % TABS.length], true);
+    });
+  });
+
+  // ── Notes filters (this page's notes, narrowed by status and category) ──
+  const filterStatus = () => document.querySelector('input[name=fstatus]:checked').value;
+  const matchesFilters = (n) => (filterStatus() === 'all' || n.status === filterStatus()) && (!$('fcat').value || n.categoryId === $('fcat').value);
+  function renderFilterCats() {
+    const keep = $('fcat').value;
+    $('fcat').replaceChildren(el('option', { value: '', textContent: 'All categories' }), ...state.categories.map((c) => el('option', { value: c.id, textContent: c.name })));
+    $('fcat').value = state.categories.some((c) => c.id === keep) ? keep : '';
+  }
+  document.querySelectorAll('input[name=fstatus]').forEach((r) => r.addEventListener('change', renderNotes));
+  $('fcat').addEventListener('change', renderNotes);
+
   function renderNotes() {
-    $('count').textContent = state.notes.length ? `(${state.notes.length})` : '';
-    if (!state.notes.length) { $('notes').replaceChildren(el('p', { className: 'empty', textContent: 'No annotations on this page yet.' })); return; }
-    $('notes').replaceChildren(...state.notes.map((n) => {
+    $('count').textContent = state.notes.length;
+    $('count').hidden = !state.notes.length;
+    const shown = state.notes.filter(matchesFilters);
+    if (!shown.length) {
+      $('notes').replaceChildren(el('p', { className: 'empty', textContent: state.notes.length ? 'No annotations match these filters.' : 'No annotations on this page yet.' }));
+      return;
+    }
+    $('notes').replaceChildren(...shown.map((n) => {
       const cat = catOf(n.categoryId);
       const box = el('input', { type: 'checkbox', checked: n.status === 'done', ariaLabel: `Mark complete: ${n.text}` });
       box.addEventListener('change', () => post({ type: 'set-status', noteId: n.id, status: box.checked ? 'done' : 'todo' }));
@@ -258,12 +337,25 @@
     const dest = document.querySelector('input[name=tdest]:checked').value;
     const exists = dest === 'summary-page' ? state.tables.summaryPage : state.tables.currentPage;
     $('table-btn').textContent = exists ? 'Update table' : 'Build summary table';
+    const n = state.notes.length;
+    $('scope-hint').textContent = document.querySelector('input[name=tscope]:checked').value === 'this-page'
+      ? `${n} annotation${n === 1 ? '' : 's'} on this page.`
+      : 'Every page except the Annotation Summary page.';
+    $('dest-hint').textContent = (exists ? 'Replaces the existing table' : 'Creates a table') + (dest === 'summary-page' ? ' on the “Annotation Summary” page.' : ' on this page.');
   }
-  document.querySelectorAll('input[name=tdest]').forEach((r) => r.addEventListener('change', renderTableButton));
+  document.querySelectorAll('input[name=tdest], input[name=tscope]').forEach((r) => r.addEventListener('change', renderTableButton));
 
   function setStatus(kind, message) { const s = $('status'); s.className = kind; s.textContent = message; }
 
-  $('add').addEventListener('submit', (e) => { e.preventDefault(); post({ type: 'add-note', text: $('text').value, categoryId: selectedCat, direction: document.querySelector('input[name=dir]:checked').value, distance: Number($('distance').value) || 0, pointerStyle: selectedPointerStyle() }); });
+  // The note needs both one selected layer and some annotation text.
+  function updateAddBtn() {
+    const hasText = $('text').value.trim().length > 0;
+    const oneLayer = state.selectionCount === 1;
+    $('add-btn').disabled = !oneLayer || !hasText;
+    $('add-btn').textContent = !oneLayer ? 'Select one layer to annotate' : !hasText ? 'Enter annotation text' : 'Annotate selected layer';
+  }
+  $('text').addEventListener('input', updateAddBtn);
+  $('add').addEventListener('submit', (e) => { e.preventDefault(); if (!$('text').value.trim()) { $('text').focus(); return; } post({ type: 'add-note', text: $('text').value, categoryId: selectedCat, direction: document.querySelector('input[name=dir]:checked').value, distance: Number($('distance').value) || 0, pointerStyle: selectedPointerStyle() }); });
   // Keep slider and number field in sync; the number field accepts values beyond the slider range.
   $('distance-range').addEventListener('input', () => { $('distance').value = $('distance-range').value; });
   $('distance').addEventListener('input', () => { $('distance-range').value = Math.min(Number($('distance').value) || 0, 400); });
@@ -292,10 +384,9 @@
         distanceLoaded = true;
       }
       draftCats = msg.categories.map((c) => Object.assign({}, c));
-      $('add-btn').disabled = msg.selectionCount !== 1;
-      $('add-btn').textContent = msg.selectionCount === 1 ? 'Annotate selected layer' : 'Select one layer to annotate';
-      renderSelect(); renderNotes(); renderCats(); renderTableButton();
-    } else if (msg.type === 'success') { setStatus('success', msg.message); $('text').value = ''; }
+      updateAddBtn();
+      renderSelect(); renderFilterCats(); renderNotes(); renderCats(); renderTableButton();
+    } else if (msg.type === 'success') { setStatus('success', msg.message); $('text').value = ''; updateAddBtn(); }
     else if (msg.type === 'error') setStatus('error', msg.message);
     else if (msg.type === 'progress') setStatus('', msg.message);
   };

@@ -404,6 +404,41 @@ export async function deleteNote(noteId: string): Promise<void> {
   note.remove();
 }
 
+/** Remove pointer lines whose note no longer exists (e.g. the card was deleted straight from the canvas).
+ *  A deleted node's data can't be read, so orphans are found by elimination: any 'pointer' group in the
+ *  container that no live note references. Returns how many were removed. */
+export function removeOrphanPointers(container: FrameNode): number {
+  const used = new Set<string>();
+  for (const note of getNotes(container)) used.add(getData(note, KEY.line));
+  const orphans = container.findChildren((n) => n.type === 'GROUP' && n.name === 'pointer' && !used.has(n.id));
+  for (const line of orphans) {
+    line.locked = false;
+    line.remove();
+  }
+  return orphans.length;
+}
+
+/** Delete notes whose target layer has been deleted, along with their pointer lines. Notes with no
+ *  recorded target (recovered from an earlier plugin ID) are left alone for the user to re-attach.
+ *  Returns how many were removed. */
+export async function removeNotesWithMissingTargets(container: FrameNode): Promise<number> {
+  let removed = 0;
+  for (const note of getNotes(container)) {
+    const targetId = getData(note, KEY.target);
+    if (!targetId) continue;
+    const target = await figma.getNodeByIdAsync(targetId);
+    if (target && !target.removed) continue;
+    const line = (await figma.getNodeByIdAsync(getData(note, KEY.line))) as SceneNode | null;
+    if (line && !line.removed) {
+      line.locked = false;
+      line.remove();
+    }
+    note.remove();
+    removed++;
+  }
+  return removed;
+}
+
 /** Self-heal: move each note to keep its offset from its target, then redraw its line. */
 export async function resync(): Promise<number> {
   const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
