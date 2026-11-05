@@ -5,7 +5,7 @@
 import type { PluginMessage } from './types';
 import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
-import { addFreeNote, addNote, applyAvatarVisibility, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
+import { addFreeNote, addNote, applyAvatarVisibility, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNoteInTable, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
 import { loadDistance, loadPointerStyle, loadShowAvatar, saveDistance, savePointerStyle, saveShowAvatar } from './features/preferences';
 import { getData, setData } from './features/data';
 import { DROP_KIND, parseNoteDrop } from './features/drop';
@@ -253,6 +253,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       case 'set-note-placement':
         await setNotePlacement(msg.noteId, msg.direction, msg.distance);
         await pushState();
+        break;
+      case 'set-note-in-table':
+        await setNoteInTable(msg.noteId, msg.include === true);
+        await pushState();
+        scheduleTableRefresh();
         break;
       case 'set-note-pointer-style':
         await setNotePointerStyle(msg.noteId, msg.pointerStyle);

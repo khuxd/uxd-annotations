@@ -119,7 +119,7 @@ export async function tableState(): Promise<{ summaryPage: boolean; currentPage:
 }
 
 async function renderTable(meta: TableMeta, interactive: boolean): Promise<{ count: number; pages: number }> {
-  const notes = await collectNotes(meta, interactive);
+  const notes = (await collectNotes(meta, interactive)).filter((n) => n.inTable);
   if (interactive && notes.length === 0) {
     throw new Error(meta.scope === 'all-pages' ? 'No annotations found on any page.' : 'No annotations on this page yet.');
   }

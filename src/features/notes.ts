@@ -5,13 +5,14 @@ import type { Category, Direction, NoteStatus, NoteSummary, PointerStyle } from 
 import { hexToRgb, topLevelAncestor } from '../utils';
 import { ensureCategoriesInFile, loadCategories } from './categories';
 import { DATA_NAMESPACE, getData, setData } from './data';
+import { parseInTable } from './table-pref';
 import { formatDate, legacyToDayFirst } from './date';
 import { clampDistance, DEFAULT_NOTE_DISTANCE, loadShowAvatar } from './preferences';
 import { pointerPoints, toPathData } from './pointer';
 import { computeCardPosition, inferPlacement } from './placement';
 
 export const CONTAINER_NAME = '.qxr-annotations';
-export const KEY = { note: 'qxr-note', target: 'qxr-target', cat: 'qxr-cat', status: 'qxr-status', dx: 'qxr-dx', dy: 'qxr-dy', line: 'qxr-line', sig: 'qxr-sig', style: 'qxr-style', date: 'qxr-date' };
+export const KEY = { note: 'qxr-note', target: 'qxr-target', cat: 'qxr-cat', status: 'qxr-status', dx: 'qxr-dx', dy: 'qxr-dy', line: 'qxr-line', sig: 'qxr-sig', style: 'qxr-style', date: 'qxr-date', inTable: 'qxr-in-table' };
 const FONT: FontName = { family: 'Inter', style: 'Regular' };
 const FONT_BOLD: FontName = { family: 'Inter', style: 'Semi Bold' };
 
@@ -46,6 +47,11 @@ function noteText(note: FrameNode): string {
 function noteDate(note: FrameNode): string {
   const t = note.findOne((n) => n.type === 'TEXT' && n.name === 'date') as TextNode | null;
   return t ? t.characters : '';
+}
+
+/** Notes are in the summary table unless explicitly switched off, so notes made before this setting existed stay in. */
+function inTableOf(note: FrameNode): boolean {
+  return parseInTable(getData(note, KEY.inTable));
 }
 
 function statusOf(note: FrameNode): NoteStatus {
@@ -355,6 +361,7 @@ export async function summariseNotes(page: PageNode = figma.currentPage): Promis
       id: note.id,
       text: noteText(note),
       date: noteDate(note),
+      inTable: inTableOf(note),
       categoryId: getData(note, KEY.cat),
       status: statusOf(note),
       targetId: target?.id ?? '',
@@ -375,6 +382,13 @@ export async function setStatus(noteId: string, status: NoteStatus): Promise<voi
   if (!note || note.type !== 'FRAME') return;
   setData(note, KEY.status, status);
   note.opacity = status === 'done' ? 0.5 : 1;
+}
+
+/** Include or leave out one note when the summary table is built. The note itself is unchanged. */
+export async function setNoteInTable(noteId: string, include: boolean): Promise<void> {
+  const note = await figma.getNodeByIdAsync(noteId);
+  if (!note || note.type !== 'FRAME' || getData(note, KEY.note) !== '1') return;
+  setData(note, KEY.inTable, include ? '1' : '0');
 }
 
 /** Re-categorise an existing note: card header, border, label and pointer all take the new colour. */
