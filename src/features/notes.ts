@@ -5,13 +5,13 @@ import type { Category, Direction, NoteStatus, NoteSummary, PointerStyle } from 
 import { hexToRgb, topLevelAncestor } from '../utils';
 import { ensureCategoriesInFile, loadCategories } from './categories';
 import { DATA_NAMESPACE, getData, setData } from './data';
-import { formatDate } from './date';
+import { formatDate, legacyToDayFirst } from './date';
 import { clampDistance, DEFAULT_NOTE_DISTANCE, loadShowAvatar } from './preferences';
 import { pointerPoints, toPathData } from './pointer';
 import { computeCardPosition, inferPlacement } from './placement';
 
 export const CONTAINER_NAME = '.qxr-annotations';
-export const KEY = { note: 'qxr-note', target: 'qxr-target', cat: 'qxr-cat', status: 'qxr-status', dx: 'qxr-dx', dy: 'qxr-dy', line: 'qxr-line', sig: 'qxr-sig', style: 'qxr-style' };
+export const KEY = { note: 'qxr-note', target: 'qxr-target', cat: 'qxr-cat', status: 'qxr-status', dx: 'qxr-dx', dy: 'qxr-dy', line: 'qxr-line', sig: 'qxr-sig', style: 'qxr-style', date: 'qxr-date' };
 const FONT: FontName = { family: 'Inter', style: 'Regular' };
 const FONT_BOLD: FontName = { family: 'Inter', style: 'Semi Bold' };
 
@@ -147,7 +147,7 @@ async function buildCard(text: string, category: Category): Promise<FrameNode> {
   const accent = hexToRgb(category.color);
   const user = figma.currentUser;
   const author = user ? user.name : 'Unknown author';
-  const stamp = formatDate(new Date());
+  const stamp = formatDate(new Date()); // cards carry KEY.date = 'dmy' so they are never converted below
 
   const card = figma.createFrame();
   card.name = `Note · ${category.name}`;
@@ -223,6 +223,7 @@ async function buildCard(text: string, category: Category): Promise<FrameNode> {
   body.layoutSizingHorizontal = 'FILL';
   message.layoutSizingHorizontal = 'FILL';
   footer.layoutSizingHorizontal = 'FILL';
+  setData(card, KEY.date, 'dmy');
   return card;
 }
 
@@ -290,11 +291,33 @@ export async function findNotes(page: PageNode): Promise<FrameNode[]> {
   const shared = page.findAllWithCriteria({ types: ['FRAME'], sharedPluginData: { namespace: DATA_NAMESPACE, keys: [KEY.note] } });
   const legacy = page.findAllWithCriteria({ types: ['FRAME'], pluginData: { keys: [KEY.note] } }); // written by earlier versions
   const seen = new Set<string>();
-  return [...shared, ...legacy].filter((n) => {
+  const notes = [...shared, ...legacy].filter((n) => {
     if (seen.has(n.id) || getData(n, KEY.note) !== '1') return false;
     seen.add(n.id);
     return true;
   });
+  await migrateLegacyDates(notes);
+  return notes;
+}
+
+/** One-off, per note: rewrite a month-first date stamp day-first. A note is marked once handled (new cards are
+ *  marked when built), so the swap can never be applied twice. A note whose font can't be loaded is left
+ *  unmarked and retried next time. */
+async function migrateLegacyDates(notes: FrameNode[]): Promise<void> {
+  for (const note of notes) {
+    if (getData(note, KEY.date) === 'dmy') continue;
+    const layer = note.findOne((n) => n.type === 'TEXT' && n.name === 'date') as TextNode | null;
+    const fixed = layer ? legacyToDayFirst(layer.characters) : null;
+    if (layer && fixed) {
+      try {
+        await figma.loadFontAsync(layer.fontName as FontName);
+        layer.characters = fixed;
+      } catch (_e) {
+        continue; // font unavailable: try again on a later read
+      }
+    }
+    setData(note, KEY.date, 'dmy');
+  }
 }
 
 export async function summariseNotes(page: PageNode = figma.currentPage): Promise<NoteSummary[]> {
