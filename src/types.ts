@@ -28,6 +28,8 @@ export interface NoteSummary {
   targetId: string;
   targetName: string;
   frameName: string;
+  /** Auto-layout direction of the top-level frame: 'row', 'column', or '' when it has none. */
+  frameLayout: 'row' | 'column' | '';
   pageName: string;
   pointerStyle: PointerStyle;
   direction: Direction;

@@ -307,6 +307,7 @@ export async function summariseNotes(page: PageNode = figma.currentPage): Promis
       targetId: target?.id ?? '',
       targetName: target && 'name' in target ? target.name : '(missing layer)',
       frameName: frame?.name ?? 'Unassigned',
+      frameLayout: frame && 'layoutMode' in frame ? (frame.layoutMode === 'HORIZONTAL' ? 'row' : frame.layoutMode === 'VERTICAL' ? 'column' : '') : '',
       pageName: page.name,
       pointerStyle: getData(note, KEY.style) === 'elbow' ? 'elbow' : 'straight',
       direction: placement.direction,
