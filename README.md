@@ -12,11 +12,12 @@ A Figma plugin for leaving hand-off notes on layers. Each note is a card on the 
 
 ## Panel
 
-The window is 440×760. A left rail switches between four tabs, and a footer stays visible.
+The window is 440×760. A left rail switches between five tabs, and a footer stays visible.
 
 | Tab | What it is for |
 | --- | --- |
-| Add | Category, direction, pointer style, distance and note text |
+| Add | Category, direction, pointer style, distance, note text and whether notes show your avatar |
+| Free note | Drag a card onto the canvas to place a note that isn't connected to a layer (or place it in the centre of the view) |
 | Notes | The notes on this page, filtered by status and category. Click a note to select it on the canvas; use the pencil to change its category, pointer style and location |
 | Table | Which pages to include, where to put the table, and build or update it |
 | Categories | Edit the category list |

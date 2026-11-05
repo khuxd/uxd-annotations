@@ -96,6 +96,10 @@
   .editor .distance { grid-template-columns: minmax(0, 1fr) auto; }
   .editor .btn { white-space: nowrap; }
   .listbox { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
+  .dropcard { border: 2px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; color: #1a1a1a; cursor: grab; user-select: none; }
+  .dropcard:active { cursor: grabbing; }
+  .dropcard .head { padding: 8px 12px; color: #fff; font-weight: 600; font-size: 13px; }
+  .dropcard .body { padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .empty { padding: var(--gap); color: var(--text-2); }
   .entry { border-radius: var(--radius-s); }
   .row { display: grid; grid-template-columns: 24px 10px minmax(0, 1fr) auto auto; align-items: center; gap: 6px; min-height: 36px; padding: 0 2px 0 4px; }
@@ -130,6 +134,9 @@
   <nav class="rail" role="tablist" aria-label="Sections" aria-orientation="vertical">
     <button class="tab" role="tab" id="tab-add" aria-controls="pane-add" aria-selected="true" data-tab="add" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg><span class="name">Add</span>
+    </button>
+    <button class="tab" role="tab" id="tab-drop" aria-controls="pane-drop" aria-selected="false" data-tab="drop" tabindex="-1" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2.5" stroke-dasharray="3 2.4"/><path d="M8 10.5h8M8 14h5"/></svg><span class="name">Free note</span>
     </button>
     <button class="tab" role="tab" id="tab-notes" aria-controls="pane-notes" aria-selected="false" data-tab="notes" tabindex="-1" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10l-4 4H5V5Z"/><path d="M15 19v-4h4M8.5 9.5h7M8.5 13h4"/></svg><span class="name">Notes</span><span class="badge" id="count" hidden></span>
@@ -186,6 +193,27 @@
             <p class="hint" id="text-hint">Shown on the annotation card and in the summary table.</p>
           </div>
         </form>
+      </section>
+
+      <!-- Drop -->
+      <section class="pane" id="pane-drop" role="tabpanel" aria-labelledby="tab-drop" hidden>
+        <p class="hint">Drag the card onto the canvas to place a note that isn't connected to a layer. Connect it later with Re-attach in the Notes tab.</p>
+        <div class="field dd" id="drop-dd">
+          <span id="drop-cat-label">Category</span>
+          <button type="button" class="dd-btn" id="drop-cat-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="drop-cat-label drop-cat-name">
+            <span class="dot" id="drop-cat-swatch"></span><span class="label" id="drop-cat-name"></span><span aria-hidden="true">▾</span>
+          </button>
+          <ul class="dd-list" id="drop-cat-list" role="listbox" hidden aria-labelledby="drop-cat-label" tabindex="-1"></ul>
+        </div>
+        <div class="field">
+          <label for="drop-text"><span>Note text <span class="muted" style="font-weight:400">Optional</span></span></label>
+          <textarea id="drop-text" placeholder="New note"></textarea>
+        </div>
+        <div class="dropcard" id="drop-card" draggable="true" title="Drag onto the canvas">
+          <div class="head" id="drop-head"></div>
+          <div class="body" id="drop-body"></div>
+        </div>
+        <button class="btn" id="drop-place" type="button">Place in the centre of the view</button>
       </section>
 
       <!-- Notes -->
@@ -270,7 +298,7 @@
   }
 
   // ── Tabs ──
-  const TABS = ['add', 'notes', 'table', 'categories'];
+  const TABS = ['add', 'drop', 'notes', 'table', 'categories'];
   function showTab(name, focus) {
     tab = name;
     TABS.forEach((t) => {
@@ -292,49 +320,53 @@
   });
 
   // ── Category dropdown (custom listbox so options can show colour dots) ──
-  let selectedCat = '';
-  let activeIdx = -1;
-  const ddBtn = $('cat-btn'), ddList = $('cat-list');
-
-  function renderSelect() {
-    if (!state.categories.some((c) => c.id === selectedCat)) selectedCat = state.categories.length ? state.categories[0].id : '';
-    const cur = catOf(selectedCat);
-    $('cat-name').textContent = cur ? cur.name : 'No categories';
-    $('cat-swatch').style.background = '#' + (cur ? cur.color : '999999');
-    ddList.replaceChildren(...state.categories.map((c, i) => {
-      const sw = el('span', { className: 'dot' });
-      sw.style.background = '#' + c.color;
-      const li = el('li', { className: 'dd-opt', role: 'option', id: 'opt-' + i, ariaSelected: String(c.id === selectedCat) }, sw, c.name);
-      li.addEventListener('click', () => { choose(c.id); closeDd(true); });
-      return li;
-    }));
+  // A category picker with a colour dot on the button and on every option. Used on Add and on Free note.
+  function categoryDropdown(ids, onChange) {
+    const root = $(ids.root), btn = $(ids.btn), list = $(ids.list);
+    let value = '';
+    let activeIdx = -1;
+    function render() {
+      if (!state.categories.some((c) => c.id === value)) value = state.categories.length ? state.categories[0].id : '';
+      const cur = catOf(value);
+      $(ids.name).textContent = cur ? cur.name : 'No categories';
+      $(ids.swatch).style.background = '#' + (cur ? cur.color : '999999');
+      list.replaceChildren(...state.categories.map((c, i) => {
+        const sw = el('span', { className: 'dot' });
+        sw.style.background = '#' + c.color;
+        const li = el('li', { className: 'dd-opt', role: 'option', id: ids.list + '-opt-' + i, ariaSelected: String(c.id === value) }, sw, c.name);
+        li.addEventListener('click', () => { choose(c.id); close(true); });
+        return li;
+      }));
+    }
+    function setActive(i) {
+      const opts = list.children;
+      if (!opts.length) return;
+      activeIdx = (i + opts.length) % opts.length;
+      Array.from(opts).forEach((o, n) => o.classList.toggle('active', n === activeIdx));
+      list.setAttribute('aria-activedescendant', ids.list + '-opt-' + activeIdx);
+      opts[activeIdx].scrollIntoView({ block: 'nearest' });
+    }
+    function open() {
+      list.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      setActive(Math.max(0, state.categories.findIndex((c) => c.id === value)));
+      list.focus();
+    }
+    function close(refocus) {
+      list.hidden = true; btn.setAttribute('aria-expanded', 'false');
+      if (refocus) btn.focus();
+    }
+    function choose(id) { value = id; render(); if (onChange) onChange(); }
+    btn.addEventListener('click', () => (list.hidden ? open() : close(true)));
+    list.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIdx + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIdx - 1); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (state.categories[activeIdx]) choose(state.categories[activeIdx].id); close(true); }
+      else if (e.key === 'Escape' || e.key === 'Tab') { close(e.key === 'Escape'); }
+    });
+    document.addEventListener('click', (e) => { if (!root.contains(e.target)) close(false); });
+    return { render, get value() { return value; } };
   }
-  function setActive(i) {
-    const opts = ddList.children;
-    if (!opts.length) return;
-    activeIdx = (i + opts.length) % opts.length;
-    Array.from(opts).forEach((o, n) => o.classList.toggle('active', n === activeIdx));
-    ddList.setAttribute('aria-activedescendant', 'opt-' + activeIdx);
-    opts[activeIdx].scrollIntoView({ block: 'nearest' });
-  }
-  function openDd() {
-    ddList.hidden = false; ddBtn.setAttribute('aria-expanded', 'true');
-    setActive(Math.max(0, state.categories.findIndex((c) => c.id === selectedCat)));
-    ddList.focus();
-  }
-  function closeDd(refocus) {
-    ddList.hidden = true; ddBtn.setAttribute('aria-expanded', 'false');
-    if (refocus) ddBtn.focus();
-  }
-  function choose(id) { selectedCat = id; renderSelect(); }
-  ddBtn.addEventListener('click', () => (ddList.hidden ? openDd() : closeDd(true)));
-  ddList.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIdx + 1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIdx - 1); }
-    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (state.categories[activeIdx]) choose(state.categories[activeIdx].id); closeDd(true); }
-    else if (e.key === 'Escape' || e.key === 'Tab') { closeDd(e.key === 'Escape'); }
-  });
-  document.addEventListener('click', (e) => { if (!$('dd').contains(e.target)) closeDd(false); });
+  const addCat = categoryDropdown({ root: 'dd', btn: 'cat-btn', list: 'cat-list', name: 'cat-name', swatch: 'cat-swatch' });
 
   // ── Notes list ──
   // Text is edited on the canvas; category, pointer style and location are set here.
@@ -400,8 +432,9 @@
       dot.setAttribute('role', 'img');
       dot.setAttribute('aria-label', 'Category: ' + (cat ? cat.name : 'Uncategorised'));
 
-      const view = el('button', { className: 'view', type: 'button', title: `${n.text}\n${n.frameName} › ${n.targetName}\nClick to select it on the canvas, then edit the text there` },
-        el('span', { className: 'main-text', textContent: n.text }), el('span', { className: 'where', textContent: `${n.frameName} › ${n.targetName}` }));
+      const where = n.targetId ? `${n.frameName} › ${n.targetName}` : 'Not attached to a layer';
+      const view = el('button', { className: 'view', type: 'button', title: `${n.text}\n${where}\nClick to select it on the canvas, then edit the text there` },
+        el('span', { className: 'main-text', textContent: n.text }), el('span', { className: 'where', textContent: where }));
       view.addEventListener('click', () => post({ type: 'goto-note', noteId: n.id }));
 
       const row = el('div', { className: 'row' }, box, dot, view);
@@ -421,6 +454,34 @@
       return entry;
     }));
   }
+
+  // ── Drop: a note dragged onto the canvas, not connected to any layer ──
+  const dropText = $('drop-text'), dropCard = $('drop-card');
+  function renderDrop() {
+    dropCat.render();
+    const cur = catOf(dropCat.value);
+    $('drop-head').textContent = cur ? cur.name : 'No categories';
+    $('drop-head').style.background = '#' + (cur ? cur.color : '999999');
+    $('drop-body').textContent = dropText.value.trim() || 'New note';
+  }
+  const dropCat = categoryDropdown({ root: 'drop-dd', btn: 'drop-cat-btn', list: 'drop-cat-list', name: 'drop-cat-name', swatch: 'drop-cat-swatch' }, renderDrop);
+  dropText.addEventListener('input', renderDrop);
+  const dropPayload = () => ({ kind: 'qxr-note', text: dropText.value, categoryId: dropCat.value });
+  // Chromium reports 0,0 for the final dragend when the drag finishes outside this frame, so remember the
+  // last real pointer position from the drag events and fall back to it.
+  let lastDrag = { x: 0, y: 0 };
+  dropCard.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', 'qxr-note'); e.dataTransfer.effectAllowed = 'copy'; });
+  dropCard.addEventListener('drag', (e) => { if (e.clientX || e.clientY) lastDrag = { x: e.clientX, y: e.clientY }; });
+  dropCard.addEventListener('dragend', (e) => {
+    const x = e.clientX || e.clientY ? e.clientX : lastDrag.x;
+    const y = e.clientX || e.clientY ? e.clientY : lastDrag.y;
+    // Released over the panel itself: nothing to place. Anywhere else is the canvas.
+    if (x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight) return;
+    setStatus('', 'Placing note…');
+    // Figma ignores a pluginDrop that carries no items, so send a marker item alongside the real data.
+    parent.postMessage({ pluginDrop: { clientX: x, clientY: y, items: [{ type: 'text/plain', data: 'qxr-note' }], dropMetadata: dropPayload() } }, '*');
+  });
+  $('drop-place').addEventListener('click', () => post(Object.assign({ type: 'place-free-note' }, { text: dropText.value, categoryId: dropCat.value })));
 
   // ── Categories ──
   function renderCats() {
@@ -466,7 +527,7 @@
     e.preventDefault();
     if (!$('text').value.trim()) { showTab('add'); setStatus('error', 'Enter annotation text first.'); $('text').focus(); return; }
     setStatus('', '');
-    post({ type: 'add-note', text: $('text').value, categoryId: selectedCat, direction: document.querySelector('input[name=dir]:checked').value, distance: Number($('distance').value) || 0, pointerStyle: selectedPointerStyle() });
+    post({ type: 'add-note', text: $('text').value, categoryId: addCat.value, direction: document.querySelector('input[name=dir]:checked').value, distance: Number($('distance').value) || 0, pointerStyle: selectedPointerStyle() });
   });
   $('text').addEventListener('input', () => { if ($('status').classList.contains('error')) setStatus('', ''); });
 
@@ -499,7 +560,7 @@
       }
       $('show-avatar').checked = msg.showAvatar;
       draftCats = msg.categories.map((c) => Object.assign({}, c));
-      renderFooter(); renderSelect(); renderFilterCats(); renderNotes(); renderCats(); renderTableButton();
+      renderFooter(); addCat.render(); renderDrop(); renderFilterCats(); renderNotes(); renderCats(); renderTableButton();
     } else if (msg.type === 'success') { setStatus('success', msg.message); if (msg.message === 'Note added.') { $('text').value = ''; showTab('notes'); } }
     else if (msg.type === 'error') setStatus('error', msg.message);
     else if (msg.type === 'progress') setStatus('', msg.message);

@@ -259,6 +259,27 @@ export async function addNote(text: string, categoryId: string, direction: Direc
   setData(card, KEY.sig, signature(card, target));
 }
 
+/** A note that isn't connected to any layer: dropped from the panel (or placed at the view centre). It has
+ *  no target or pointer; the existing Re-attach action connects it to a layer later. `x`/`y` are page
+ *  coordinates (the container sits at the page origin). */
+export async function addFreeNote(text: string, categoryId: string, x: number, y: number, centered = false): Promise<FrameNode> {
+  if (!text.trim()) throw new Error('Enter some note text.');
+  await ensureCategoriesInFile();
+  const categories = await loadCategories();
+  const category = categories.find((c) => c.id === categoryId) ?? categories[0];
+  const container = await getContainer();
+  const card = await buildCard(text.trim(), category);
+  container.appendChild(card);
+  card.x = centered ? x - card.width / 2 : x;
+  card.y = centered ? y - card.height / 2 : y;
+  card.locked = false;
+  setData(card, KEY.note, '1');
+  setData(card, KEY.cat, category.id);
+  setData(card, KEY.status, 'todo');
+  setData(card, KEY.style, 'elbow');
+  return card;
+}
+
 /** Notes made under an earlier plugin ID keep their data as private plugin data, which this ID cannot read,
  *  so they look untagged. Recognise them by shape (a "Note · …" card holding 'text' and 'category' layers
  *  inside the container) and re-tag them as shared data. The target/offset were in the unreadable data and

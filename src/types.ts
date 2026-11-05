@@ -50,6 +50,7 @@ export type PluginMessage =
   | { type: 'save-distance'; distance: number }
   | { type: 'save-pointer-style'; pointerStyle: PointerStyle }
   | { type: 'set-show-avatar'; show: boolean }
+  | { type: 'place-free-note'; text: string; categoryId: string }
   | { type: 'set-note-category'; noteId: string; categoryId: string }
   | { type: 'set-note-placement'; noteId: string; direction: Direction; distance: number }
   | { type: 'set-note-pointer-style'; noteId: string; pointerStyle: PointerStyle }
