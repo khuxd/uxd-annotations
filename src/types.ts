@@ -25,6 +25,8 @@ export interface NoteSummary {
   text: string;
   /** DD/MM/YYYY the note was created, or '' if the card has no date layer. */
   date: string;
+  /** False when the note is left out of the summary table. */
+  inTable: boolean;
   categoryId: string;
   status: NoteStatus;
   targetId: string;
@@ -50,6 +52,7 @@ export type PluginMessage =
   | { type: 'save-distance'; distance: number }
   | { type: 'save-pointer-style'; pointerStyle: PointerStyle }
   | { type: 'set-show-avatar'; show: boolean }
+  | { type: 'set-note-in-table'; noteId: string; include: boolean }
   | { type: 'place-free-note'; text: string; categoryId: string }
   | { type: 'set-note-category'; noteId: string; categoryId: string }
   | { type: 'set-note-placement'; noteId: string; direction: Direction; distance: number }

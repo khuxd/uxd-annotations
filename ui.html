@@ -106,6 +106,7 @@
   .row input[type=checkbox] { margin: 0 auto; }
   .row .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row .main-text { font-weight: 500; }
+  .row .tag { margin-left: 6px; padding: 0 6px; border-radius: 99px; background: var(--raised); color: var(--text-2); font-size: 10px; font-weight: 600; }
   .row .where { color: var(--text-2); margin-left: 6px; }
   .entry.done .main-text { text-decoration: line-through; color: var(--text-2); }
   .row .view { all: unset; min-width: 0; cursor: pointer; border-radius: 4px; padding: 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -221,6 +222,11 @@
         <div class="list-head">
           <span class="grow" id="heading">Notes on this page</span>
           <span class="count" id="doneCount" aria-live="polite"></span>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Filter by type" id="ftype">
+          <label><input type="radio" name="ftype" value="all" checked /> <span id="ft-all">All</span></label>
+          <label><input type="radio" name="ftype" value="anchored" /> <span id="ft-anchored">Anchored</span></label>
+          <label><input type="radio" name="ftype" value="free" /> <span id="ft-free">Free</span></label>
         </div>
         <div class="filters">
           <select id="fstatus" aria-label="Filter by status">
@@ -392,26 +398,36 @@
     dist.addEventListener('input', () => { draft.distance = Number(dist.value) || 0; });
     const apply = el('button', { className: 'btn', type: 'button', textContent: 'Apply', disabled: !n.targetId });
     apply.addEventListener('click', () => { drafts.delete(n.id); post({ type: 'set-note-placement', noteId: n.id, direction: draft.direction, distance: draft.distance }); });
+    const inTable = el('input', { type: 'checkbox', checked: n.inTable });
+    inTable.addEventListener('change', () => post({ type: 'set-note-in-table', noteId: n.id, include: inTable.checked }));
     return el('div', { className: 'editor' },
       el('label', { className: 'field' }, el('span', { textContent: 'Category' }), catSelect),
+      el('label', { className: 'check', style: 'justify-content:flex-start' }, inTable, ' Show in summary table'),
       el('div', { className: 'field' }, el('span', { textContent: 'Pointer line' }), group),
       el('div', { className: 'field' }, el('span', { textContent: 'Location' }), dirs),
       el('div', { className: 'field' }, el('span', { textContent: 'Distance from layer (px)' }), el('div', { className: 'distance' }, dist, apply)),
       n.targetId ? '' : el('p', { className: 'hint', textContent: 'Re-attach this note to a layer to choose its pointer style and location.' }));
   }
 
-  const matchesFilters = (n) => ($('fstatus').value === 'all' || n.status === $('fstatus').value) && (!$('fcat').value || n.categoryId === $('fcat').value);
+  const selectedType = () => document.querySelector('input[name=ftype]:checked').value;
+  const matchesType = (n) => selectedType() === 'all' || (selectedType() === 'free') === !n.targetId;
+  const matchesFilters = (n) => matchesType(n) && ($('fstatus').value === 'all' || n.status === $('fstatus').value) && (!$('fcat').value || n.categoryId === $('fcat').value);
   function renderFilterCats() {
     const keep = $('fcat').value;
     $('fcat').replaceChildren(el('option', { value: '', textContent: 'All categories' }), ...state.categories.map((c) => el('option', { value: c.id, textContent: c.name })));
     $('fcat').value = state.categories.some((c) => c.id === keep) ? keep : '';
   }
+  document.querySelectorAll('input[name=ftype]').forEach((r) => r.addEventListener('change', renderNotes));
   $('fstatus').addEventListener('change', renderNotes);
   $('fcat').addEventListener('change', renderNotes);
 
   function renderNotes() {
     const all = state.notes;
     const shown = all.filter(matchesFilters);
+    const freeCount = all.filter((n) => !n.targetId).length;
+    $('ft-all').textContent = 'All ' + all.length;
+    $('ft-anchored').textContent = 'Anchored ' + (all.length - freeCount);
+    $('ft-free').textContent = 'Free ' + freeCount;
     const done = all.filter((n) => n.status === 'done').length;
 
     $('count').textContent = all.length;
@@ -432,9 +448,9 @@
       dot.setAttribute('role', 'img');
       dot.setAttribute('aria-label', 'Category: ' + (cat ? cat.name : 'Uncategorised'));
 
-      const where = n.targetId ? `${n.frameName} › ${n.targetName}` : 'Not attached to a layer';
+      const where = (n.targetId ? `${n.frameName} › ${n.targetName}` : 'Not attached to a layer') + (n.inTable ? '' : ' · Not in table');
       const view = el('button', { className: 'view', type: 'button', title: `${n.text}\n${where}\nClick to select it on the canvas, then edit the text there` },
-        el('span', { className: 'main-text', textContent: n.text }), el('span', { className: 'where', textContent: where }));
+        el('span', { className: 'main-text', textContent: n.text }), n.targetId ? '' : el('span', { className: 'tag', textContent: 'Free' }), el('span', { className: 'where', textContent: where }));
       view.addEventListener('click', () => post({ type: 'goto-note', noteId: n.id }));
 
       const row = el('div', { className: 'row' }, box, dot, view);
