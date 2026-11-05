@@ -10,7 +10,7 @@ import { loadDistance, loadPointerStyle, saveDistance, savePointerStyle } from '
 import { getData, setData } from './features/data';
 import { buildTable, refreshTables, tableState } from './features/table';
 
-figma.showUI(__html__, { width: 360, height: 560, title: 'UXD Annotations', themeColors: true });
+figma.showUI(__html__, { width: 440, height: 760, title: 'UXD Annotations', themeColors: true });
 
 // Keep any existing summary table in step with the notes. Debounced so typing doesn't rebuild per keystroke.
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -46,6 +46,8 @@ async function pushState(): Promise<void> {
     notes: await summariseNotes(),
     tables: await tableState(),
     selectionCount: figma.currentPage.selection.length,
+    // Name and type of the single selected layer, so the panel footer can show what "Annotate" will target.
+    selection: figma.currentPage.selection.length === 1 ? { name: figma.currentPage.selection[0].name, type: figma.currentPage.selection[0].type } : undefined,
     distance: await loadDistance(),
     pointerStyle: await loadPointerStyle(),
   });

@@ -9,180 +9,256 @@
   :root {
     --bg: var(--figma-color-bg, #fff);
     --surface: var(--figma-color-bg-secondary, #f5f5f5);
+    --raised: var(--figma-color-bg-tertiary, #ececec);
     --border: var(--figma-color-border, #e6e6e6);
     --text: var(--figma-color-text, #1e1e1e);
     --text-2: var(--figma-color-text-secondary, #666);
     --accent: var(--figma-color-bg-brand, #0d99ff);
     --on-accent: var(--figma-color-text-onbrand, #fff);
+    --tint: color-mix(in srgb, var(--accent) 14%, transparent);
     --error: var(--figma-color-text-danger, #f24822);
     --success: var(--figma-color-text-success, #14ae5c);
-    --radius: 6px;
+    --radius: 8px;
+    --radius-s: 6px;
     --space: 8px;
+    --gap: 12px;
+    --control: 30px;
     --font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
-  body { background: var(--bg); color: var(--text); font: 12px/1.4 var(--font); padding: 12px; }
-  h2 { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; margin: 16px 0 var(--space); }
-  h2:first-child { margin-top: 0; }
-  label { display: block; color: var(--text-2); margin-bottom: 4px; }
-  textarea, select, input[type=text] { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px; }
-  textarea { resize: vertical; min-height: 64px; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 12px/1.4 var(--font); overflow: hidden; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .stack { display: flex; flex-direction: column; gap: var(--space); }
-  .row { display: flex; gap: var(--space); align-items: center; }
-  button { font: inherit; cursor: pointer; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 6px 10px; }
-  button.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  button.icon { padding: 2px 6px; }
-  .note { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space); display: grid; grid-template-columns: auto 1fr auto; gap: 6px 8px; align-items: start; }
-  .note.done .text { text-decoration: line-through; color: var(--text-2); }
-  .chip { display: inline-block; border-radius: 99px; padding: 1px 8px; font-size: 10px; font-weight: 600; color: #fff; }
-  .meta { color: var(--text-2); font-size: 10px; grid-column: 2 / 4; }
-  .cat-row { display: grid; grid-template-columns: 28px 1fr auto; gap: var(--space); align-items: center; }
-  input[type=color] { width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: none; }
-  #status { margin-top: 12px; min-height: 16px; }
-  #status.error { color: var(--error); } #status.success { color: var(--success); }
-  .empty { color: var(--text-2); padding: var(--space) 0; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; }
+  svg { display: block; flex: none; }
+  .muted, .hint { color: var(--text-2); }
+
+  .app { display: grid; grid-template-columns: 64px minmax(0, 1fr); height: 100%; }
+
+  /* ── Tab rail ── */
+  .rail { display: flex; flex-direction: column; gap: 6px; padding: var(--space) 6px; background: var(--surface); border-right: 1px solid var(--border); }
+  .tab { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 56px; padding: 6px 2px; border: 1px solid transparent; border-radius: var(--radius); background: none; color: var(--text-2); cursor: pointer; }
+  .tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .tab span.name { font-size: 11px; font-weight: 500; }
+  .tab[aria-selected=true] { color: var(--text); background: var(--tint); border-color: var(--accent); }
+  .tab .badge { position: absolute; top: 3px; right: 4px; font-size: 10px; line-height: 14px; min-width: 16px; padding: 0 4px; text-align: center; border-radius: 99px; background: var(--raised); color: var(--text-2); }
+
+  /* ── Main column ── */
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .panes { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--gap); padding: var(--gap); overflow-y: auto; }
+  .pane.notes { overflow: hidden; }
+  h3 { font-size: 11px; font-weight: 600; color: var(--text-2); }
+
+  /* ── Controls ── */
+  input[type=text], input[type=number], select, textarea { width: 100%; min-height: var(--control); font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 4px 8px; }
+  textarea { resize: vertical; min-height: 72px; padding: 6px 8px; }
+  select { cursor: pointer; }
+  .field { display: grid; gap: 4px; min-width: 0; }
+  .field > span, .field > legend { color: var(--text-2); font-weight: 600; font-size: 11px; padding: 0; }
+  fieldset { border: 0; min-width: 0; }
+  .req { color: var(--error); font-weight: 600; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 3px; gap: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .seg label { position: relative; display: flex; align-items: center; justify-content: center; min-height: 28px; padding: 0 6px; border-radius: var(--radius-s); text-align: center; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+  .seg input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .seg label:has(input:checked) { background: var(--bg); color: var(--text); font-weight: 600; box-shadow: 0 0 0 1px var(--border); }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn { min-height: var(--control); padding: 0 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-s); cursor: pointer; }
+  .btn.small { padding: 0 10px; }
+  .link { background: none; border: 0; padding: 0 2px; min-height: var(--control); color: var(--accent); cursor: pointer; }
+  .iconbtn { width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-s); background: none; color: var(--text-2); cursor: pointer; display: grid; place-items: center; }
+  .iconbtn:hover { background: var(--raised); }
+  .iconbtn[aria-expanded=true] { background: var(--tint); color: var(--text); }
+  .iconbtn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .check { display: inline-flex; align-items: center; justify-content: center; min-width: var(--control); min-height: var(--control); cursor: pointer; }
+  .check input, .row input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+
+  /* ── Category dropdown ── */
   .dd { position: relative; }
-  .dd-btn { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; background: var(--bg); }
-  .dd-btn .label { flex: 1; }
-  .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-  .dd-list { position: absolute; z-index: 10; left: 0; right: 0; top: calc(100% + 4px); list-style: none; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px; max-height: 200px; overflow: auto; }
-  .dd-list[hidden] { display: none; }
-  .dd-opt { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
+  .dd-btn { width: 100%; min-height: var(--control); display: flex; align-items: center; gap: 8px; padding: 0 8px; text-align: left; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); cursor: pointer; }
+  .dd-btn .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dd-list { position: absolute; z-index: 10; left: 0; right: 0; top: calc(100% + 4px); list-style: none; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-s); box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 4px; max-height: 200px; overflow: auto; }
+  .dd-opt { display: flex; align-items: center; gap: 8px; min-height: var(--control); padding: 0 8px; border-radius: 4px; cursor: pointer; }
   .dd-opt[aria-selected=true] { font-weight: 600; }
   .dd-opt:hover, .dd-opt.active { background: var(--surface); }
-  .seg { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .seg label { margin: 0; position: relative; text-align: center; cursor: pointer; padding: 6px 0; color: var(--text); }
-  .seg label + label { border-left: 1px solid var(--border); }
-  .seg input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
-  .seg label:has(input:checked) { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-  .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .seg.two { grid-template-columns: repeat(2, 1fr); }
-  .seg.three { grid-template-columns: repeat(3, 1fr); }
-  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin: -12px -12px 12px; padding: 0 12px; position: sticky; top: 0; background: var(--bg); z-index: 5; }
-  .tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--text-2); padding: 10px 10px 8px; font-weight: 500; }
-  .tab[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-  .tab .badge { background: var(--surface); border-radius: 99px; padding: 0 6px; font-size: 10px; margin-left: 4px; }
-  .panel[hidden] { display: none; }
-  .filters { display: flex; flex-direction: column; gap: var(--space); margin-bottom: var(--space); }
-  .filters select { width: 100%; }
-  .field-legend { color: var(--text-2); margin-bottom: 4px; padding: 0; }
-  .req { color: var(--error); font-weight: 600; }
-  .req-note { color: var(--text-2); font-size: 10px; margin-left: 2px; }
-  .hint { color: var(--text-2); font-size: 11px; margin-top: 4px; }
-  fieldset { border: 0; min-width: 0; }
-  .placement { grid-column: 1 / 4; display: flex; flex-direction: column; gap: var(--space); border-top: 1px solid var(--border); padding-top: var(--space); }
-  .placement .seg label { padding: 4px 0; }
-  details.section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 8px; }
-  details.section summary { cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; padding: 4px 0; }
-  details.section[open] summary { margin-bottom: var(--space); }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .distance { display: grid; grid-template-columns: minmax(0, 1fr) 72px; gap: var(--space); align-items: center; }
+  .distance input[type=range] { width: 100%; min-height: var(--control); accent-color: var(--accent); }
+
+  /* ── Notes list ── */
+  .list-head { display: flex; align-items: center; gap: var(--space); flex: none; }
+  .list-head .grow { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .count { color: var(--text-2); flex: none; }
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space); flex: none; }
+  .entry[data-open=true] { background: var(--tint); }
+  .editor { display: grid; gap: var(--space); padding: 4px 8px 10px 40px; }
+  .editor .distance { grid-template-columns: minmax(0, 1fr) auto; }
+  .editor .btn { white-space: nowrap; }
+  .listbox { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
+  .empty { padding: var(--gap); color: var(--text-2); }
+  .entry { border-radius: var(--radius-s); }
+  .row { display: grid; grid-template-columns: 24px 10px minmax(0, 1fr) auto auto; align-items: center; gap: 6px; min-height: 36px; padding: 0 2px 0 4px; }
+  .row input[type=checkbox] { margin: 0 auto; }
+  .row .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .main-text { font-weight: 500; }
+  .row .where { color: var(--text-2); margin-left: 6px; }
+  .entry.done .main-text { text-decoration: line-through; color: var(--text-2); }
+  .row .view { all: unset; min-width: 0; cursor: pointer; border-radius: 4px; padding: 6px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .view:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tools { flex: none; }
+
+  /* ── Categories ── */
+  .cat-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px; gap: var(--space); align-items: center; }
+  input[type=color] { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-s); background: none; cursor: pointer; }
+  .stack { display: grid; gap: var(--space); }
+  .actions-row { display: flex; gap: var(--space); }
+
+  /* ── Footer ── */
+  .footer { flex: none; display: grid; gap: var(--space); padding: var(--gap); border-top: 1px solid var(--border); background: var(--bg); }
+  .target { display: flex; align-items: baseline; gap: var(--space); min-width: 0; }
+  .target strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+  .target span { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button.primary { min-height: 40px; font-weight: 600; color: var(--on-accent); background: var(--accent); border: 0; border-radius: var(--radius); cursor: pointer; }
+  #status { min-height: 16px; }
+  #status.error { color: var(--error); }
+  #status.success { color: var(--success); }
 </style>
 </head>
 <body>
-  <div class="tabs" role="tablist" aria-label="Sections">
-    <button class="tab" role="tab" id="tab-add" aria-controls="panel-add" aria-selected="true" type="button">Add</button>
-    <button class="tab" role="tab" id="tab-notes" aria-controls="panel-notes" aria-selected="false" tabindex="-1" type="button">Notes<span class="badge" id="count" hidden></span></button>
-    <button class="tab" role="tab" id="tab-table" aria-controls="panel-table" aria-selected="false" tabindex="-1" type="button">Generate table</button>
+<div class="app">
+  <nav class="rail" role="tablist" aria-label="Sections" aria-orientation="vertical">
+    <button class="tab" role="tab" id="tab-add" aria-controls="pane-add" aria-selected="true" data-tab="add" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg><span class="name">Add</span>
+    </button>
+    <button class="tab" role="tab" id="tab-notes" aria-controls="pane-notes" aria-selected="false" data-tab="notes" tabindex="-1" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10l-4 4H5V5Z"/><path d="M15 19v-4h4M8.5 9.5h7M8.5 13h4"/></svg><span class="name">Notes</span><span class="badge" id="count" hidden></span>
+    </button>
+    <button class="tab" role="tab" id="tab-table" aria-controls="pane-table" aria-selected="false" data-tab="table" tabindex="-1" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/></svg><span class="name">Table</span>
+    </button>
+    <button class="tab" role="tab" id="tab-categories" aria-controls="pane-categories" aria-selected="false" data-tab="categories" tabindex="-1" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5V5h7.5L20 13.5 13.5 20 4 12.5Z"/><circle cx="8.5" cy="9.5" r="1.2"/></svg><span class="name">Categories</span>
+    </button>
+  </nav>
+
+  <div class="main">
+    <div class="panes">
+      <!-- Add -->
+      <section class="pane" id="pane-add" role="tabpanel" aria-labelledby="tab-add">
+        <form id="add" class="stack" style="gap:var(--gap)" novalidate>
+          <div class="field dd" id="dd">
+            <span id="cat-label">Category</span>
+            <button type="button" class="dd-btn" id="cat-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="cat-label cat-name">
+              <span class="dot" id="cat-swatch"></span><span class="label" id="cat-name"></span><span aria-hidden="true">▾</span>
+            </button>
+            <ul class="dd-list" id="cat-list" role="listbox" aria-labelledby="cat-label" tabindex="-1"></ul>
+          </div>
+          <fieldset class="field">
+            <legend>Appears</legend>
+            <div class="seg" role="radiogroup" aria-label="Annotation direction">
+              <label><input type="radio" name="dir" value="left" checked /> ← Left</label>
+              <label><input type="radio" name="dir" value="top" /> ↑ Top</label>
+              <label><input type="radio" name="dir" value="bottom" /> ↓ Bottom</label>
+              <label><input type="radio" name="dir" value="right" /> → Right</label>
+            </div>
+          </fieldset>
+          <fieldset class="field">
+            <legend>Pointer line</legend>
+            <div class="seg" role="radiogroup" aria-label="Pointer line style">
+              <label><input type="radio" name="pstyle" value="elbow" checked /> ⌐ Elbow</label>
+              <label><input type="radio" name="pstyle" value="straight" /> ╱ Straight</label>
+            </div>
+          </fieldset>
+          <div class="field">
+            <span id="dist-label">Distance from layer (px)</span>
+            <div class="distance">
+              <input type="range" id="distance-range" min="0" max="400" step="10" value="60" aria-labelledby="dist-label" />
+              <input type="number" id="distance" min="0" max="2000" step="10" value="60" aria-labelledby="dist-label" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="text"><span>Annotation text <span class="req" aria-hidden="true">*</span> <span class="muted" style="font-weight:400">Required</span></span></label>
+            <textarea id="text" required aria-required="true" aria-describedby="text-hint" placeholder="Describe the behaviour, content or hand-off detail…"></textarea>
+            <p class="hint" id="text-hint">Shown on the annotation card and in the summary table.</p>
+          </div>
+        </form>
+      </section>
+
+      <!-- Notes -->
+      <section class="pane notes" id="pane-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+        <div class="list-head">
+          <span class="grow" id="heading">Notes on this page</span>
+          <span class="count" id="doneCount" aria-live="polite"></span>
+        </div>
+        <div class="filters">
+          <select id="fstatus" aria-label="Filter by status">
+            <option value="all">All statuses</option>
+            <option value="todo">To do</option>
+            <option value="done">Done</option>
+          </select>
+          <select id="fcat" aria-label="Filter by category"></select>
+        </div>
+        <p class="hint" id="done-hint">Tick the box on a note to mark it as done.</p>
+        <div id="notes" class="listbox" role="list" aria-live="polite"></div>
+        <div class="tools">
+          <button id="resync-btn" class="btn" type="button" title="Move every note back to its saved distance from its layer">Re-anchor notes</button>
+        </div>
+      </section>
+
+      <!-- Table -->
+      <section class="pane" id="pane-table" role="tabpanel" aria-labelledby="tab-table" hidden>
+        <fieldset class="field">
+          <legend>Annotations to include</legend>
+          <div class="seg" role="radiogroup" aria-label="Which pages to include">
+            <label><input type="radio" name="tscope" value="all-pages" checked /> All pages</label>
+            <label><input type="radio" name="tscope" value="this-page" /> This page</label>
+          </div>
+          <p class="hint" id="scope-hint"></p>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Put the table on</legend>
+          <div class="seg" role="radiogroup" aria-label="Where to put the table">
+            <label><input type="radio" name="tdest" value="summary-page" checked /> Summary page</label>
+            <label><input type="radio" name="tdest" value="current-page" /> Current page</label>
+          </div>
+          <p class="hint" id="dest-hint"></p>
+        </fieldset>
+        <button class="primary" id="table-btn" type="button">Build summary table</button>
+      </section>
+
+      <!-- Categories -->
+      <section class="pane" id="pane-categories" role="tabpanel" aria-labelledby="tab-categories" hidden>
+        <h3>Categories <span id="cats-count" class="muted" style="font-weight:400"></span></h3>
+        <div id="cats" class="stack"></div>
+        <div class="actions-row">
+          <button id="add-cat" class="btn" type="button">Add category</button>
+          <button id="save-cats" class="btn" type="button">Save</button>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <div class="target"><strong id="targetName">Nothing selected</strong><span id="targetMeta"></span></div>
+      <button class="primary" type="submit" form="add" id="add-btn" disabled>Select one layer to annotate</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </footer>
   </div>
-
-  <section class="panel" id="panel-add" role="tabpanel" aria-labelledby="tab-add">
-  <form id="add" class="stack">
-    <div class="dd" id="dd">
-      <label id="cat-label" for="cat-btn">Category</label>
-      <button type="button" class="dd-btn" id="cat-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="cat-label cat-name">
-        <span class="swatch" id="cat-swatch"></span><span class="label" id="cat-name"></span><span aria-hidden="true">▾</span>
-      </button>
-      <ul class="dd-list" id="cat-list" role="listbox" aria-labelledby="cat-label" tabindex="-1" hidden></ul>
-    </div>
-    <fieldset style="border:0">
-      <legend style="color:var(--text-2);margin-bottom:4px">Appears</legend>
-      <div class="seg" role="radiogroup" aria-label="Annotation direction">
-        <label><input type="radio" name="dir" value="left" checked /> ← Left</label>
-        <label><input type="radio" name="dir" value="top" /> ↑ Top</label>
-        <label><input type="radio" name="dir" value="bottom" /> ↓ Bottom</label>
-        <label><input type="radio" name="dir" value="right" /> → Right</label>
-      </div>
-    </fieldset>
-    <fieldset style="border:0">
-      <legend style="color:var(--text-2);margin-bottom:4px">Pointer line</legend>
-      <div class="seg two" role="radiogroup" aria-label="Pointer line style">
-        <label><input type="radio" name="pstyle" value="elbow" checked /> ⌐ Elbow</label>
-        <label><input type="radio" name="pstyle" value="straight" /> ╱ Straight</label>
-      </div>
-    </fieldset>
-    <div>
-      <label for="distance">Distance from layer (px)</label>
-      <div class="row">
-        <input type="range" id="distance-range" min="0" max="400" step="10" value="60" aria-label="Distance slider" style="flex:1" />
-        <input type="number" id="distance" min="0" max="2000" step="10" value="60" style="width:72px" />
-      </div>
-    </div>
-    <div>
-      <label for="text">Annotation text <span class="req" aria-hidden="true">*</span> <span class="req-note">Required</span></label>
-      <textarea id="text" required aria-required="true" aria-describedby="text-hint" placeholder="Describe the behaviour, content or hand-off detail…"></textarea>
-      <p class="hint" id="text-hint">Shown on the annotation card and in the summary table.</p>
-    </div>
-    <button class="primary" type="submit" id="add-btn" disabled>Annotate selected layer</button>
-  </form>
-
-  <details class="section" id="cats-section">
-    <summary>Manage categories <span id="cats-count"></span></summary>
-    <div id="cats" class="stack"></div>
-    <div class="row" style="margin-top:8px">
-      <button id="add-cat" type="button">Add category</button>
-      <button id="save-cats" type="button">Save</button>
-    </div>
-  </details>
-  </section>
-
-  <section class="panel" id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
-    <div class="filters">
-      <div class="seg three" role="radiogroup" aria-label="Filter by status">
-        <label><input type="radio" name="fstatus" value="all" checked /> All</label>
-        <label><input type="radio" name="fstatus" value="todo" /> To do</label>
-        <label><input type="radio" name="fstatus" value="done" /> Done</label>
-      </div>
-      <select id="fcat" aria-label="Filter by category"></select>
-    </div>
-    <div id="notes" class="stack" aria-live="polite"></div>
-    <div class="row" style="margin-top:8px">
-      <button id="resync-btn" type="button" title="Move every note back to its saved distance from its layer">Re-anchor notes</button>
-    </div>
-  </section>
-
-  <section class="panel stack" id="panel-table" role="tabpanel" aria-labelledby="tab-table" hidden>
-    <fieldset>
-      <legend class="field-legend">Annotations to include</legend>
-      <div class="seg two" role="radiogroup" aria-label="Which pages to include">
-        <label><input type="radio" name="tscope" value="all-pages" checked /> All pages</label>
-        <label><input type="radio" name="tscope" value="this-page" /> This page</label>
-      </div>
-      <p class="hint" id="scope-hint"></p>
-    </fieldset>
-    <fieldset>
-      <legend class="field-legend">Put the table on</legend>
-      <div class="seg two" role="radiogroup" aria-label="Where to put the table">
-        <label><input type="radio" name="tdest" value="summary-page" checked /> Summary page</label>
-        <label><input type="radio" name="tdest" value="current-page" /> Current page</label>
-      </div>
-      <p class="hint" id="dest-hint"></p>
-    </fieldset>
-    <button class="primary" id="table-btn" type="button">Build summary table</button>
-  </section>
-
-  <p id="status" role="status"></p>
+</div>
 
 <script>
   let state = { categories: [], notes: [], tables: { summaryPage: false, currentPage: false }, selectionCount: 0 };
   let draftCats = [];
   let distanceLoaded = false;
-  const openEditors = new Set(); // note ids whose placement editor is open
+  let tab = 'add';
   const drafts = new Map(); // note id -> unsaved { direction, distance }, survives re-renders
-  const selectedPointerStyle = () => document.querySelector('input[name=pstyle]:checked').value;
+  const openEditors = new Set(); // note ids whose category / pointer editor is open
+  const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>';
   const $ = (id) => document.getElementById(id);
   const post = (msg) => parent.postMessage({ pluginMessage: msg }, '*');
   const catOf = (id) => state.categories.find((c) => c.id === id);
+  const selectedPointerStyle = () => document.querySelector('input[name=pstyle]:checked').value;
+  const TYPE_NAMES = { INSTANCE: 'instance', FRAME: 'frame', COMPONENT: 'component', COMPONENT_SET: 'component set', SECTION: 'section', GROUP: 'group', TEXT: 'text', RECTANGLE: 'rectangle' };
 
   function el(tag, props, ...kids) {
     const n = Object.assign(document.createElement(tag), props || {});
@@ -190,7 +266,29 @@
     return n;
   }
 
-  // ── Category dropdown (custom listbox so options can show colour swatches) ──
+  // ── Tabs ──
+  const TABS = ['add', 'notes', 'table', 'categories'];
+  function showTab(name, focus) {
+    tab = name;
+    TABS.forEach((t) => {
+      const on = t === name;
+      $('tab-' + t).setAttribute('aria-selected', String(on));
+      $('tab-' + t).tabIndex = on ? 0 : -1;
+      $('pane-' + t).hidden = !on;
+    });
+    if (focus) $('tab-' + name).focus();
+  }
+  TABS.forEach((t, i) => {
+    $('tab-' + t).addEventListener('click', () => showTab(t));
+    $('tab-' + t).addEventListener('keydown', (e) => {
+      const next = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : null;
+      if (next === null) return;
+      e.preventDefault();
+      showTab(TABS[(next + TABS.length) % TABS.length], true);
+    });
+  });
+
+  // ── Category dropdown (custom listbox so options can show colour dots) ──
   let selectedCat = '';
   let activeIdx = -1;
   const ddBtn = $('cat-btn'), ddList = $('cat-list');
@@ -201,7 +299,7 @@
     $('cat-name').textContent = cur ? cur.name : 'No categories';
     $('cat-swatch').style.background = '#' + (cur ? cur.color : '999999');
     ddList.replaceChildren(...state.categories.map((c, i) => {
-      const sw = el('span', { className: 'swatch' });
+      const sw = el('span', { className: 'dot' });
       sw.style.background = '#' + c.color;
       const li = el('li', { className: 'dd-opt', role: 'option', id: 'opt-' + i, ariaSelected: String(c.id === selectedCat) }, sw, c.name);
       li.addEventListener('click', () => { choose(c.id); closeDd(true); });
@@ -235,104 +333,107 @@
   });
   document.addEventListener('click', (e) => { if (!$('dd').contains(e.target)) closeDd(false); });
 
-  const DIRS = [['left', '← Left'], ['top', '↑ Top'], ['bottom', '↓ Bottom'], ['right', '→ Right']];
-  function placementEditor(n) {
-    const draft = drafts.get(n.id) || { direction: n.direction, distance: n.distance };
-    drafts.set(n.id, draft);
-    const group = el('div', { className: 'seg', role: 'radiogroup', ariaLabel: 'Direction' });
-    DIRS.forEach(([value, text]) => {
-      const radio = el('input', { type: 'radio', name: 'ndir-' + n.id, value, checked: draft.direction === value });
-      radio.addEventListener('change', () => { draft.direction = value; });
-      group.append(el('label', {}, radio, ' ' + text));
-    });
-    const dist = el('input', { type: 'number', min: 0, max: 2000, step: 10, value: draft.distance, ariaLabel: 'Distance in pixels' });
-    dist.style.width = '72px';
-    dist.addEventListener('input', () => { draft.distance = Number(dist.value) || 0; });
-    const apply = el('button', { className: 'primary', type: 'button', textContent: 'Apply' });
-    apply.addEventListener('click', () => { drafts.delete(n.id); post({ type: 'set-note-placement', noteId: n.id, direction: draft.direction, distance: draft.distance }); });
+  // ── Notes list ──
+  // Text is edited on the canvas; category, pointer style and location are set here.
+  function editor(n) {
     const catSelect = el('select', { ariaLabel: 'Category' },
       ...state.categories.map((c) => el('option', { value: c.id, textContent: c.name, selected: c.id === n.categoryId })));
     catSelect.addEventListener('change', () => post({ type: 'set-note-category', noteId: n.id, categoryId: catSelect.value }));
-    return el('div', { className: 'placement' }, el('label', {}, 'Category', catSelect), group, el('div', { className: 'row' }, el('span', { textContent: 'Distance (px)' }), dist, apply));
+    const group = el('div', { className: 'seg', role: 'radiogroup', ariaLabel: 'Pointer line style' });
+    [['elbow', '⌐ Elbow'], ['straight', '╱ Straight']].forEach(([value, text]) => {
+      const radio = el('input', { type: 'radio', name: 'nstyle-' + n.id, value, checked: n.pointerStyle === value, disabled: !n.targetId });
+      radio.addEventListener('change', () => post({ type: 'set-note-pointer-style', noteId: n.id, pointerStyle: value }));
+      group.append(el('label', {}, radio, text));
+    });
+    const draft = drafts.get(n.id) || { direction: n.direction, distance: n.distance };
+    drafts.set(n.id, draft);
+    const dirs = el('div', { className: 'seg', role: 'radiogroup', ariaLabel: 'Direction' });
+    [['left', '← Left'], ['top', '↑ Top'], ['bottom', '↓ Bottom'], ['right', '→ Right']].forEach(([value, text]) => {
+      const radio = el('input', { type: 'radio', name: 'ndir-' + n.id, value, checked: draft.direction === value, disabled: !n.targetId });
+      radio.addEventListener('change', () => { draft.direction = value; });
+      dirs.append(el('label', {}, radio, text));
+    });
+    const dist = el('input', { type: 'number', min: 0, max: 2000, step: 10, value: draft.distance, ariaLabel: 'Distance in pixels', disabled: !n.targetId });
+    dist.addEventListener('input', () => { draft.distance = Number(dist.value) || 0; });
+    const apply = el('button', { className: 'btn', type: 'button', textContent: 'Apply', disabled: !n.targetId });
+    apply.addEventListener('click', () => { drafts.delete(n.id); post({ type: 'set-note-placement', noteId: n.id, direction: draft.direction, distance: draft.distance }); });
+    return el('div', { className: 'editor' },
+      el('label', { className: 'field' }, el('span', { textContent: 'Category' }), catSelect),
+      el('div', { className: 'field' }, el('span', { textContent: 'Pointer line' }), group),
+      el('div', { className: 'field' }, el('span', { textContent: 'Location' }), dirs),
+      el('div', { className: 'field' }, el('span', { textContent: 'Distance from layer (px)' }), el('div', { className: 'distance' }, dist, apply)),
+      n.targetId ? '' : el('p', { className: 'hint', textContent: 'Re-attach this note to a layer to choose its pointer style and location.' }));
   }
 
-  // ── Tabs ──
-  const TABS = ['add', 'notes', 'table'];
-  function showTab(name, focus) {
-    TABS.forEach((t) => {
-      const on = t === name;
-      $('tab-' + t).setAttribute('aria-selected', String(on));
-      $('tab-' + t).tabIndex = on ? 0 : -1;
-      $('panel-' + t).hidden = !on;
-    });
-    if (focus) $('tab-' + name).focus();
-  }
-  TABS.forEach((t, i) => {
-    $('tab-' + t).addEventListener('click', () => showTab(t));
-    $('tab-' + t).addEventListener('keydown', (e) => {
-      const next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
-      if (next === null) return;
-      e.preventDefault();
-      showTab(TABS[(next + TABS.length) % TABS.length], true);
-    });
-  });
-
-  // ── Notes filters (this page's notes, narrowed by status and category) ──
-  const filterStatus = () => document.querySelector('input[name=fstatus]:checked').value;
-  const matchesFilters = (n) => (filterStatus() === 'all' || n.status === filterStatus()) && (!$('fcat').value || n.categoryId === $('fcat').value);
+  const matchesFilters = (n) => ($('fstatus').value === 'all' || n.status === $('fstatus').value) && (!$('fcat').value || n.categoryId === $('fcat').value);
   function renderFilterCats() {
     const keep = $('fcat').value;
     $('fcat').replaceChildren(el('option', { value: '', textContent: 'All categories' }), ...state.categories.map((c) => el('option', { value: c.id, textContent: c.name })));
     $('fcat').value = state.categories.some((c) => c.id === keep) ? keep : '';
   }
-  document.querySelectorAll('input[name=fstatus]').forEach((r) => r.addEventListener('change', renderNotes));
+  $('fstatus').addEventListener('change', renderNotes);
   $('fcat').addEventListener('change', renderNotes);
 
   function renderNotes() {
-    $('count').textContent = state.notes.length;
-    $('count').hidden = !state.notes.length;
-    const shown = state.notes.filter(matchesFilters);
+    const all = state.notes;
+    const shown = all.filter(matchesFilters);
+    const done = all.filter((n) => n.status === 'done').length;
+
+    $('count').textContent = all.length;
+    $('count').hidden = !all.length;
+    $('doneCount').textContent = all.length ? done + '/' + all.length + ' done' : '';
+
     if (!shown.length) {
-      $('notes').replaceChildren(el('p', { className: 'empty', textContent: state.notes.length ? 'No annotations match these filters.' : 'No annotations on this page yet.' }));
+      $('notes').replaceChildren(el('div', { className: 'empty', textContent: all.length ? 'No annotations match these filters.' : 'No annotations on this page yet. Use Add to create one.' }));
       return;
     }
     $('notes').replaceChildren(...shown.map((n) => {
       const cat = catOf(n.categoryId);
-      const box = el('input', { type: 'checkbox', checked: n.status === 'done', ariaLabel: `Mark complete: ${n.text}` });
+      const box = el('input', { type: 'checkbox', checked: n.status === 'done', ariaLabel: `Mark as done: ${n.text}`, title: n.status === 'done' ? 'Done. Untick to mark as to do' : 'Mark as done' });
       box.addEventListener('change', () => post({ type: 'set-status', noteId: n.id, status: box.checked ? 'done' : 'todo' }));
-      const chip = el('span', { className: 'chip', textContent: cat ? cat.name : 'Uncategorised' });
-      chip.style.background = '#' + (cat ? cat.color : '999999');
-      const go = el('button', { className: 'icon', textContent: 'View', type: 'button' });
-      go.addEventListener('click', () => post({ type: 'goto-note', noteId: n.id }));
-      const nextStyle = n.pointerStyle === 'elbow' ? 'straight' : 'elbow';
-      const style = el('button', { className: 'icon', type: 'button', textContent: n.pointerStyle === 'elbow' ? '⌐ Elbow' : '╱ Straight', title: 'Switch pointer to ' + nextStyle, ariaLabel: 'Pointer is ' + n.pointerStyle + '. Switch to ' + nextStyle });
-      style.addEventListener('click', () => post({ type: 'set-note-pointer-style', noteId: n.id, pointerStyle: nextStyle }));
-      const edit = el('button', { className: 'icon', type: 'button', textContent: 'Edit', ariaExpanded: String(openEditors.has(n.id)), title: 'Change category, direction and distance' });
-      edit.addEventListener('click', () => { openEditors.has(n.id) ? openEditors.delete(n.id) : openEditors.add(n.id); renderNotes(); });
-      const del = el('button', { className: 'icon', textContent: '✕', type: 'button', ariaLabel: 'Delete note' });
-      del.addEventListener('click', () => post({ type: 'delete-note', noteId: n.id }));
-      const card = el('div', { className: 'note ' + n.status },
-        box, el('div', {}, chip, el('div', { className: 'text', textContent: n.text })), el('div', { className: 'row' }, style, edit, go, del),
-        el('div', { className: 'meta', textContent: `${n.frameName} › ${n.targetName}` }));
-      if (openEditors.has(n.id)) card.append(placementEditor(n));
-      return card;
+
+      const dot = el('span', { className: 'dot', title: cat ? cat.name : 'Uncategorised' });
+      dot.style.background = '#' + (cat ? cat.color : '999999');
+      dot.setAttribute('role', 'img');
+      dot.setAttribute('aria-label', 'Category: ' + (cat ? cat.name : 'Uncategorised'));
+
+      const view = el('button', { className: 'view', type: 'button', title: `${n.text}\n${n.frameName} › ${n.targetName}\nClick to select it on the canvas, then edit the text there` },
+        el('span', { className: 'main-text', textContent: n.text }), el('span', { className: 'where', textContent: `${n.frameName} › ${n.targetName}` }));
+      view.addEventListener('click', () => post({ type: 'goto-note', noteId: n.id }));
+
+      const row = el('div', { className: 'row' }, box, dot, view);
+      if (!n.targetId) { // no layer to point at: let the user pick one on the canvas, then attach
+        const attach = el('button', { className: 'btn small', type: 'button', textContent: 'Re-attach', disabled: state.selectionCount !== 1, title: state.selectionCount === 1 ? 'Point this note at the selected layer' : 'Select the layer this note should point at first' });
+        attach.addEventListener('click', () => post({ type: 'attach-note', noteId: n.id }));
+        row.append(attach);
+      }
+      const open = openEditors.has(n.id);
+      const edit = el('button', { className: 'iconbtn', type: 'button', title: 'Change category, pointer style and location', ariaLabel: 'Edit note settings: ' + n.text, ariaExpanded: String(open) });
+      edit.innerHTML = PENCIL;
+      edit.addEventListener('click', () => { open ? openEditors.delete(n.id) : openEditors.add(n.id); renderNotes(); });
+      row.append(edit);
+      const entry = el('div', { className: 'entry ' + n.status, role: 'listitem' }, row);
+      entry.dataset.open = String(open);
+      if (open) entry.append(editor(n));
+      return entry;
     }));
   }
 
+  // ── Categories ──
   function renderCats() {
-    $('cats-count').textContent = '(' + draftCats.length + ')';
+    $('cats-count').textContent = '· ' + draftCats.length;
     $('cats').replaceChildren(...draftCats.map((c, i) => {
       const color = el('input', { type: 'color', value: '#' + c.color, ariaLabel: `${c.name} colour` });
       color.addEventListener('input', () => { c.color = color.value.slice(1).toUpperCase(); });
       const name = el('input', { type: 'text', value: c.name, ariaLabel: 'Category name' });
       name.addEventListener('input', () => { c.name = name.value; });
-      const rm = el('button', { className: 'icon', textContent: '✕', type: 'button', ariaLabel: `Remove ${c.name}` });
+      const rm = el('button', { className: 'iconbtn', textContent: '✕', type: 'button', ariaLabel: `Remove ${c.name}`, title: 'Remove category' });
       rm.addEventListener('click', () => { draftCats.splice(i, 1); renderCats(); });
       return el('div', { className: 'cat-row' }, color, name, rm);
     }));
   }
 
-  // The button says "Update table" when a table already exists at the chosen destination.
+  // ── Table ──
   function renderTableButton() {
     const dest = document.querySelector('input[name=tdest]:checked').value;
     const exists = dest === 'summary-page' ? state.tables.summaryPage : state.tables.currentPage;
@@ -345,21 +446,30 @@
   }
   document.querySelectorAll('input[name=tdest], input[name=tscope]').forEach((r) => r.addEventListener('change', renderTableButton));
 
+  // ── Footer: target line, pinned Annotate button, status ──
   function setStatus(kind, message) { const s = $('status'); s.className = kind; s.textContent = message; }
 
-  // The note needs both one selected layer and some annotation text.
-  function updateAddBtn() {
-    const hasText = $('text').value.trim().length > 0;
+  function renderFooter() {
+    const sel = state.selection;
+    $('targetName').textContent = sel ? sel.name : state.selectionCount > 1 ? state.selectionCount + ' layers selected' : 'Nothing selected';
+    $('targetMeta').textContent = sel ? '· ' + (TYPE_NAMES[sel.type] || sel.type.toLowerCase()) : '';
     const oneLayer = state.selectionCount === 1;
-    $('add-btn').disabled = !oneLayer || !hasText;
-    $('add-btn').textContent = !oneLayer ? 'Select one layer to annotate' : !hasText ? 'Enter annotation text' : 'Annotate selected layer';
+    $('add-btn').disabled = !oneLayer;
+    $('add-btn').textContent = oneLayer ? 'Annotate selected layer' : 'Select one layer to annotate';
   }
-  $('text').addEventListener('input', updateAddBtn);
-  $('add').addEventListener('submit', (e) => { e.preventDefault(); if (!$('text').value.trim()) { $('text').focus(); return; } post({ type: 'add-note', text: $('text').value, categoryId: selectedCat, direction: document.querySelector('input[name=dir]:checked').value, distance: Number($('distance').value) || 0, pointerStyle: selectedPointerStyle() }); });
+
+  // With no text yet, the pinned button takes the user to the Add tab instead of failing quietly.
+  $('add').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!$('text').value.trim()) { showTab('add'); setStatus('error', 'Enter annotation text first.'); $('text').focus(); return; }
+    setStatus('', '');
+    post({ type: 'add-note', text: $('text').value, categoryId: selectedCat, direction: document.querySelector('input[name=dir]:checked').value, distance: Number($('distance').value) || 0, pointerStyle: selectedPointerStyle() });
+  });
+  $('text').addEventListener('input', () => { if ($('status').classList.contains('error')) setStatus('', ''); });
+
   // Keep slider and number field in sync; the number field accepts values beyond the slider range.
   $('distance-range').addEventListener('input', () => { $('distance').value = $('distance-range').value; });
   $('distance').addEventListener('input', () => { $('distance-range').value = Math.min(Number($('distance').value) || 0, 400); });
-  // Persist the distance once the user commits a value (not on every keystroke).
   const commitDistance = () => post({ type: 'save-distance', distance: Number($('distance').value) || 0 });
   $('distance').addEventListener('change', commitDistance);
   $('distance-range').addEventListener('change', commitDistance);
@@ -384,12 +494,13 @@
         distanceLoaded = true;
       }
       draftCats = msg.categories.map((c) => Object.assign({}, c));
-      updateAddBtn();
-      renderSelect(); renderFilterCats(); renderNotes(); renderCats(); renderTableButton();
-    } else if (msg.type === 'success') { setStatus('success', msg.message); $('text').value = ''; updateAddBtn(); }
+      renderFooter(); renderSelect(); renderFilterCats(); renderNotes(); renderCats(); renderTableButton();
+    } else if (msg.type === 'success') { setStatus('success', msg.message); if (msg.message === 'Note added.') { $('text').value = ''; showTab('notes'); } }
     else if (msg.type === 'error') setStatus('error', msg.message);
     else if (msg.type === 'progress') setStatus('', msg.message);
   };
+
+  showTab('add');
   post({ type: 'init' });
 </script>
 </body>
