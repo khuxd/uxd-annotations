@@ -393,7 +393,7 @@ export async function gotoNote(noteId: string): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);
   if (note && note.type === 'FRAME') {
     figma.viewport.scrollAndZoomIntoView([note]);
-    figma.currentPage.selection = [];
+    figma.currentPage.selection = [note]; // select it so the text can be edited straight on the canvas
   }
 }
 

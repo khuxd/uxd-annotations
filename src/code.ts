@@ -51,7 +51,40 @@ async function pushState(): Promise<void> {
   });
 }
 
-figma.on('selectionchange', () => void pushState());
+// Text edited on the canvas is applied when the note is deselected (blur), not on every keystroke.
+const editedNoteIds = new Set<string>();
+
+function noteFrameOf(node: BaseNode, container: FrameNode): FrameNode | null {
+  for (let n: BaseNode | null = node; n && n.parent; n = n.parent) {
+    if (n.parent === container && n.type === 'FRAME') return n;
+  }
+  return null;
+}
+
+/** Notes with unsaved canvas edits that are no longer selected (or inside the selection). */
+function flushEditedNotes(): boolean {
+  if (editedNoteIds.size === 0) return false;
+  const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
+  const stillActive = new Set<string>();
+  if (container) {
+    for (const node of figma.currentPage.selection) {
+      const note = noteFrameOf(node, container);
+      if (note) stillActive.add(note.id);
+    }
+  }
+  let flushed = false;
+  for (const id of Array.from(editedNoteIds)) {
+    if (stillActive.has(id)) continue;
+    editedNoteIds.delete(id);
+    flushed = true;
+  }
+  return flushed;
+}
+
+figma.on('selectionchange', () => {
+  void pushState();
+  if (flushEditedNotes()) scheduleTableRefresh();
+});
 
 // Self-healing: when a target moves, re-anchor notes. When the user drags a
 // note itself, remember its new offset instead of snapping it back.
@@ -106,7 +139,6 @@ async function onNodeChange(event: NodeChangeEvent): Promise<void> {
     return;
   }
   syncing = true;
-  let textEdited = false;
   try {
     // A note was deleted (or brought back by undo): update the panel now, tidy the document later.
     if (membership) {
@@ -121,8 +153,11 @@ async function onNodeChange(event: NodeChangeEvent): Promise<void> {
     for (const change of event.nodeChanges) {
       if (change.type !== 'PROPERTY_CHANGE' || change.node.removed) continue;
       const node = change.node;
-      // The user edited a note's text on the canvas: refresh the panel from the card.
-      if (node.type === 'TEXT' && node.name === 'text' && isInside(node, container) && change.properties.indexOf('characters') !== -1) textEdited = true;
+      // The user edited a note's text on the canvas: remember which note, and apply it once it is deselected.
+      if (node.type === 'TEXT' && node.name === 'text' && isInside(node, container) && change.properties.indexOf('characters') !== -1) {
+        const note = noteFrameOf(node, container);
+        if (note) editedNoteIds.add(note.id);
+      }
       const moved = change.properties.indexOf('x') !== -1 || change.properties.indexOf('y') !== -1;
       if (moved && node.type === 'FRAME' && getData(node, KEY.note) === '1') {
         const target = await figma.getNodeByIdAsync(getData(node, KEY.target));
@@ -134,10 +169,6 @@ async function onNodeChange(event: NodeChangeEvent): Promise<void> {
       }
     }
     if (getNotes(container).length) await resync();
-    if (textEdited) {
-      await pushState();
-      scheduleTableRefresh();
-    }
   } finally {
     syncing = false;
   }
@@ -151,6 +182,7 @@ function bindPage(): void {
 bindPage();
 figma.on('currentpagechange', () => {
   bindPage();
+  if (editedNoteIds.size) { editedNoteIds.clear(); scheduleTableRefresh(); }
   void pushState();
 });
 
