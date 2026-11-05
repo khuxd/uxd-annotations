@@ -5,8 +5,8 @@
 import type { PluginMessage } from './types';
 import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
-import { addNote, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
-import { loadDistance, loadPointerStyle, saveDistance, savePointerStyle } from './features/preferences';
+import { addNote, applyAvatarVisibility, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
+import { loadDistance, loadPointerStyle, loadShowAvatar, saveDistance, savePointerStyle, saveShowAvatar } from './features/preferences';
 import { getData, setData } from './features/data';
 import { buildTable, refreshTables, tableState } from './features/table';
 
@@ -50,6 +50,7 @@ async function pushState(): Promise<void> {
     selection: figma.currentPage.selection.length === 1 ? { name: figma.currentPage.selection[0].name, type: figma.currentPage.selection[0].type } : undefined,
     distance: await loadDistance(),
     pointerStyle: await loadPointerStyle(),
+    showAvatar: loadShowAvatar(),
   });
 }
 
@@ -238,6 +239,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         break;
       case 'save-pointer-style':
         await savePointerStyle(msg.pointerStyle);
+        break;
+      case 'set-show-avatar':
+        saveShowAvatar(msg.show === true);
+        await applyAvatarVisibility(msg.show === true);
+        await pushState();
         break;
       case 'save-categories':
         await saveCategories(msg.categories);

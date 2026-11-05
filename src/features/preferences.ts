@@ -4,9 +4,11 @@
 
 import type { PointerStyle } from '../types';
 import { DATA_NAMESPACE } from './data';
+import { parseShowAvatar } from './avatar-pref';
 
 const DISTANCE_KEY = 'distance';
 const STYLE_KEY = 'pointerStyle';
+const AVATAR_KEY = 'showAvatar';
 const LEGACY_DISTANCE_KEY = 'qxr-annotations:distance';
 const LEGACY_STYLE_KEY = 'qxr-annotations:pointer-style';
 
@@ -40,4 +42,12 @@ export async function loadPointerStyle(): Promise<PointerStyle> {
 
 export async function savePointerStyle(style: PointerStyle): Promise<void> {
   figma.root.setSharedPluginData(DATA_NAMESPACE, STYLE_KEY, style === 'straight' ? 'straight' : 'elbow');
+}
+
+export function loadShowAvatar(): boolean {
+  return parseShowAvatar(figma.root.getSharedPluginData(DATA_NAMESPACE, AVATAR_KEY));
+}
+
+export function saveShowAvatar(show: boolean): void {
+  figma.root.setSharedPluginData(DATA_NAMESPACE, AVATAR_KEY, show ? '1' : '0');
 }

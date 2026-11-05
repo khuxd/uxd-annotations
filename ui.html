@@ -171,6 +171,9 @@
             </div>
           </fieldset>
           <div class="field">
+            <label><input type="checkbox" id="show-avatar" checked /> Show my avatar on notes</label>
+          </div>
+          <div class="field">
             <span id="dist-label">Distance from layer (px)</span>
             <div class="distance">
               <input type="range" id="distance-range" min="0" max="400" step="10" value="60" aria-labelledby="dist-label" />
@@ -474,6 +477,7 @@
   $('distance').addEventListener('change', commitDistance);
   $('distance-range').addEventListener('change', commitDistance);
   document.querySelectorAll('input[name=pstyle]').forEach((r) => r.addEventListener('change', () => post({ type: 'save-pointer-style', pointerStyle: selectedPointerStyle() })));
+  $('show-avatar').addEventListener('change', (e) => post({ type: 'set-show-avatar', show: e.target.checked }));
   $('table-btn').addEventListener('click', () => post({ type: 'build-table', options: {
     scope: document.querySelector('input[name=tscope]:checked').value,
     destination: document.querySelector('input[name=tdest]:checked').value,
@@ -493,6 +497,7 @@
         if (pick) pick.checked = true;
         distanceLoaded = true;
       }
+      $('show-avatar').checked = msg.showAvatar;
       draftCats = msg.categories.map((c) => Object.assign({}, c));
       renderFooter(); renderSelect(); renderFilterCats(); renderNotes(); renderCats(); renderTableButton();
     } else if (msg.type === 'success') { setStatus('success', msg.message); if (msg.message === 'Note added.') { $('text').value = ''; showTab('notes'); } }

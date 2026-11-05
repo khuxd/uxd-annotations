@@ -5,7 +5,7 @@ import type { Category, Direction, NoteStatus, NoteSummary, PointerStyle } from 
 import { hexToRgb, topLevelAncestor } from '../utils';
 import { ensureCategoriesInFile, loadCategories } from './categories';
 import { DATA_NAMESPACE, getData, setData } from './data';
-import { clampDistance, DEFAULT_NOTE_DISTANCE } from './preferences';
+import { clampDistance, DEFAULT_NOTE_DISTANCE, loadShowAvatar } from './preferences';
 import { pointerPoints, toPathData } from './pointer';
 import { computeCardPosition, inferPlacement } from './placement';
 
@@ -188,6 +188,7 @@ async function buildCard(text: string, category: Category): Promise<FrameNode> {
   footer.itemSpacing = 8;
   footer.fills = [];
   const avatar = await buildAvatar(author.charAt(0).toUpperCase(), user ? user.photoUrl : null);
+  avatar.visible = loadShowAvatar(); // always built so the setting can be switched back on later
   const meta = figma.createFrame();
   meta.name = 'meta';
   meta.layoutMode = 'VERTICAL';
@@ -395,6 +396,18 @@ export async function attachNote(noteId: string): Promise<void> {
   const line = drawLine(container, note, target, existing || undefined);
   setData(note, KEY.line, line.id);
   setData(note, KEY.sig, signature(note, target));
+}
+
+/** Show or hide the avatar on every note in the file. Hidden, not deleted, so it can come back. */
+export async function applyAvatarVisibility(show: boolean): Promise<void> {
+  await figma.loadAllPagesAsync();
+  for (const page of figma.root.children) {
+    const notes = await findNotes(page); // not inline in the for-of: Figma's JS engine can fail on `yield` there
+    for (const note of notes) {
+      const avatar = note.findOne((n) => n.type === 'FRAME' && n.name === 'avatar');
+      if (avatar) avatar.visible = show;
+    }
+  }
 }
 
 /** Change an existing note's pointer style and redraw its line immediately. */

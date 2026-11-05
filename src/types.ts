@@ -47,6 +47,7 @@ export type PluginMessage =
   | { type: 'delete-note'; noteId: string }
   | { type: 'save-distance'; distance: number }
   | { type: 'save-pointer-style'; pointerStyle: PointerStyle }
+  | { type: 'set-show-avatar'; show: boolean }
   | { type: 'set-note-category'; noteId: string; categoryId: string }
   | { type: 'set-note-placement'; noteId: string; direction: Direction; distance: number }
   | { type: 'set-note-pointer-style'; noteId: string; pointerStyle: PointerStyle }
@@ -58,7 +59,7 @@ export type PluginMessage =
 // ── Messages: Plugin → UI ────────────────────────────────────────────────────
 
 export type UIMessage =
-  | { type: 'state'; categories: Category[]; notes: NoteSummary[]; tables: { summaryPage: boolean; currentPage: boolean }; selectionCount: number; selection?: { name: string; type: string }; distance: number; pointerStyle: PointerStyle }
+  | { type: 'state'; categories: Category[]; notes: NoteSummary[]; tables: { summaryPage: boolean; currentPage: boolean }; selectionCount: number; selection?: { name: string; type: string }; distance: number; pointerStyle: PointerStyle; showAvatar: boolean }
   | { type: 'progress'; percent: number; message: string }
   | { type: 'success'; message: string }
   | { type: 'error'; message: string };
