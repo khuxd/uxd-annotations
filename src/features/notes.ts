@@ -373,6 +373,30 @@ export async function setNotePlacement(noteId: string, direction: Direction, dis
   setData(note, KEY.sig, signature(note, target as SceneNode));
 }
 
+/** Point a note that has lost its layer (e.g. recovered from an earlier plugin ID) at the selected layer.
+ *  The card stays where it is; its offset from the new target is recorded and an elbow pointer is drawn. */
+export async function attachNote(noteId: string): Promise<void> {
+  const note = await figma.getNodeByIdAsync(noteId);
+  if (!note || note.type !== 'FRAME' || getData(note, KEY.note) !== '1') return;
+  const container = note.parent;
+  if (!container || container.type !== 'FRAME') throw new Error('That note is not on the page any more.');
+  const target = figma.currentPage.selection[0];
+  if (figma.currentPage.selection.length !== 1 || !target) throw new Error('Select the layer this note should point at, then try again.');
+  const tb = target.absoluteBoundingBox;
+  if (!tb) throw new Error('That layer has no bounds to anchor to.');
+  for (let p: BaseNode | null = target; p; p = p.parent) {
+    if (p === container) throw new Error('Select a layer in your design, not another annotation.');
+  }
+  setData(note, KEY.target, target.id);
+  setData(note, KEY.dx, String(note.x - tb.x));
+  setData(note, KEY.dy, String(note.y - tb.y));
+  setData(note, KEY.style, 'elbow'); // recovered notes were tagged straight; re-attached ones start as elbow, like new notes
+  const existing = (await figma.getNodeByIdAsync(getData(note, KEY.line))) as SceneNode | null;
+  const line = drawLine(container, note, target, existing || undefined);
+  setData(note, KEY.line, line.id);
+  setData(note, KEY.sig, signature(note, target));
+}
+
 /** Change an existing note's pointer style and redraw its line immediately. */
 export async function setNotePointerStyle(noteId: string, style: PointerStyle): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);

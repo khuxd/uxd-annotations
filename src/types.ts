@@ -43,6 +43,7 @@ export type PluginMessage =
   | { type: 'add-note'; text: string; categoryId: string; direction: Direction; distance: number; pointerStyle: PointerStyle }
   | { type: 'set-status'; noteId: string; status: NoteStatus }
   | { type: 'goto-note'; noteId: string }
+  | { type: 'attach-note'; noteId: string }
   | { type: 'delete-note'; noteId: string }
   | { type: 'save-distance'; distance: number }
   | { type: 'save-pointer-style'; pointerStyle: PointerStyle }

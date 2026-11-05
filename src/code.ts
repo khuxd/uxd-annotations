@@ -5,7 +5,7 @@
 import type { PluginMessage } from './types';
 import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
-import { addNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
+import { addNote, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
 import { loadDistance, loadPointerStyle, saveDistance, savePointerStyle } from './features/preferences';
 import { getData, setData } from './features/data';
 import { buildTable, refreshTables, tableState } from './features/table';
@@ -207,6 +207,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         break;
       case 'goto-note':
         await gotoNote(msg.noteId);
+        break;
+      case 'attach-note':
+        await attachNote(msg.noteId);
+        await pushState();
+        sendToUI({ type: 'success', message: 'Pointer added.' });
         break;
       case 'delete-note':
         await deleteNote(msg.noteId);
