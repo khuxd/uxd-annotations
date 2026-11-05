@@ -283,6 +283,7 @@ export async function addFreeNote(text: string, categoryId: string, x: number, y
   setData(card, KEY.cat, category.id);
   setData(card, KEY.status, 'todo');
   setData(card, KEY.style, 'elbow');
+  setData(card, KEY.inTable, '0'); // free notes stay out of the summary table until switched on
   return card;
 }
 
