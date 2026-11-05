@@ -5,12 +5,13 @@ import type { Category, Direction, NoteStatus, NoteSummary, PointerStyle } from 
 import { hexToRgb, topLevelAncestor } from '../utils';
 import { ensureCategoriesInFile, loadCategories } from './categories';
 import { DATA_NAMESPACE, getData, setData } from './data';
-import { clampDistance, DEFAULT_NOTE_DISTANCE } from './preferences';
+import { formatDate, legacyToDayFirst } from './date';
+import { clampDistance, DEFAULT_NOTE_DISTANCE, loadShowAvatar } from './preferences';
 import { pointerPoints, toPathData } from './pointer';
 import { computeCardPosition, inferPlacement } from './placement';
 
 export const CONTAINER_NAME = '.qxr-annotations';
-export const KEY = { note: 'qxr-note', target: 'qxr-target', cat: 'qxr-cat', status: 'qxr-status', dx: 'qxr-dx', dy: 'qxr-dy', line: 'qxr-line', sig: 'qxr-sig', style: 'qxr-style' };
+export const KEY = { note: 'qxr-note', target: 'qxr-target', cat: 'qxr-cat', status: 'qxr-status', dx: 'qxr-dx', dy: 'qxr-dy', line: 'qxr-line', sig: 'qxr-sig', style: 'qxr-style', date: 'qxr-date' };
 const FONT: FontName = { family: 'Inter', style: 'Regular' };
 const FONT_BOLD: FontName = { family: 'Inter', style: 'Semi Bold' };
 
@@ -38,6 +39,12 @@ export function getNotes(container: FrameNode): FrameNode[] {
 
 function noteText(note: FrameNode): string {
   const t = note.findOne((n) => n.type === 'TEXT' && n.name === 'text') as TextNode | null;
+  return t ? t.characters : '';
+}
+
+/** The date is read from the card's own date layer, so notes made before this was summarised still have one. */
+function noteDate(note: FrameNode): string {
+  const t = note.findOne((n) => n.type === 'TEXT' && n.name === 'date') as TextNode | null;
   return t ? t.characters : '';
 }
 
@@ -140,7 +147,7 @@ async function buildCard(text: string, category: Category): Promise<FrameNode> {
   const accent = hexToRgb(category.color);
   const user = figma.currentUser;
   const author = user ? user.name : 'Unknown author';
-  const stamp = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const stamp = formatDate(new Date()); // cards carry KEY.date = 'dmy' so they are never converted below
 
   const card = figma.createFrame();
   card.name = `Note · ${category.name}`;
@@ -188,6 +195,7 @@ async function buildCard(text: string, category: Category): Promise<FrameNode> {
   footer.itemSpacing = 8;
   footer.fills = [];
   const avatar = await buildAvatar(author.charAt(0).toUpperCase(), user ? user.photoUrl : null);
+  avatar.visible = loadShowAvatar(); // always built so the setting can be switched back on later
   const meta = figma.createFrame();
   meta.name = 'meta';
   meta.layoutMode = 'VERTICAL';
@@ -215,6 +223,7 @@ async function buildCard(text: string, category: Category): Promise<FrameNode> {
   body.layoutSizingHorizontal = 'FILL';
   message.layoutSizingHorizontal = 'FILL';
   footer.layoutSizingHorizontal = 'FILL';
+  setData(card, KEY.date, 'dmy');
   return card;
 }
 
@@ -250,6 +259,27 @@ export async function addNote(text: string, categoryId: string, direction: Direc
   setData(card, KEY.sig, signature(card, target));
 }
 
+/** A note that isn't connected to any layer: dropped from the panel (or placed at the view centre). It has
+ *  no target or pointer; the existing Re-attach action connects it to a layer later. `x`/`y` are page
+ *  coordinates (the container sits at the page origin). */
+export async function addFreeNote(text: string, categoryId: string, x: number, y: number, centered = false): Promise<FrameNode> {
+  if (!text.trim()) throw new Error('Enter some note text.');
+  await ensureCategoriesInFile();
+  const categories = await loadCategories();
+  const category = categories.find((c) => c.id === categoryId) ?? categories[0];
+  const container = await getContainer();
+  const card = await buildCard(text.trim(), category);
+  container.appendChild(card);
+  card.x = centered ? x - card.width / 2 : x;
+  card.y = centered ? y - card.height / 2 : y;
+  card.locked = false;
+  setData(card, KEY.note, '1');
+  setData(card, KEY.cat, category.id);
+  setData(card, KEY.status, 'todo');
+  setData(card, KEY.style, 'elbow');
+  return card;
+}
+
 /** Notes made under an earlier plugin ID keep their data as private plugin data, which this ID cannot read,
  *  so they look untagged. Recognise them by shape (a "Note · …" card holding 'text' and 'category' layers
  *  inside the container) and re-tag them as shared data. The target/offset were in the unreadable data and
@@ -282,11 +312,33 @@ export async function findNotes(page: PageNode): Promise<FrameNode[]> {
   const shared = page.findAllWithCriteria({ types: ['FRAME'], sharedPluginData: { namespace: DATA_NAMESPACE, keys: [KEY.note] } });
   const legacy = page.findAllWithCriteria({ types: ['FRAME'], pluginData: { keys: [KEY.note] } }); // written by earlier versions
   const seen = new Set<string>();
-  return [...shared, ...legacy].filter((n) => {
+  const notes = [...shared, ...legacy].filter((n) => {
     if (seen.has(n.id) || getData(n, KEY.note) !== '1') return false;
     seen.add(n.id);
     return true;
   });
+  await migrateLegacyDates(notes);
+  return notes;
+}
+
+/** One-off, per note: rewrite a month-first date stamp day-first. A note is marked once handled (new cards are
+ *  marked when built), so the swap can never be applied twice. A note whose font can't be loaded is left
+ *  unmarked and retried next time. */
+async function migrateLegacyDates(notes: FrameNode[]): Promise<void> {
+  for (const note of notes) {
+    if (getData(note, KEY.date) === 'dmy') continue;
+    const layer = note.findOne((n) => n.type === 'TEXT' && n.name === 'date') as TextNode | null;
+    const fixed = layer ? legacyToDayFirst(layer.characters) : null;
+    if (layer && fixed) {
+      try {
+        await figma.loadFontAsync(layer.fontName as FontName);
+        layer.characters = fixed;
+      } catch (_e) {
+        continue; // font unavailable: try again on a later read
+      }
+    }
+    setData(note, KEY.date, 'dmy');
+  }
 }
 
 export async function summariseNotes(page: PageNode = figma.currentPage): Promise<NoteSummary[]> {
@@ -302,6 +354,7 @@ export async function summariseNotes(page: PageNode = figma.currentPage): Promis
     out.push({
       id: note.id,
       text: noteText(note),
+      date: noteDate(note),
       categoryId: getData(note, KEY.cat),
       status: statusOf(note),
       targetId: target?.id ?? '',
@@ -395,6 +448,18 @@ export async function attachNote(noteId: string): Promise<void> {
   const line = drawLine(container, note, target, existing || undefined);
   setData(note, KEY.line, line.id);
   setData(note, KEY.sig, signature(note, target));
+}
+
+/** Show or hide the avatar on every note in the file. Hidden, not deleted, so it can come back. */
+export async function applyAvatarVisibility(show: boolean): Promise<void> {
+  await figma.loadAllPagesAsync();
+  for (const page of figma.root.children) {
+    const notes = await findNotes(page); // not inline in the for-of: Figma's JS engine can fail on `yield` there
+    for (const note of notes) {
+      const avatar = note.findOne((n) => n.type === 'FRAME' && n.name === 'avatar');
+      if (avatar) avatar.visible = show;
+    }
+  }
 }
 
 /** Change an existing note's pointer style and redraw its line immediately. */

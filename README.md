@@ -7,16 +7,17 @@ A Figma plugin for leaving hand-off notes on layers. Each note is a card on the 
 - **Annotate a layer.** Select one layer, write the note, pick a category, which side the card sits on, the distance from the layer and the pointer style (elbow or straight), then annotate.
 - **Pointers follow the layer.** Move the layer and its notes follow; drag a note and its new offset is remembered. Edit a note's text directly on the canvas.
 - **Track status.** Tick a note in the panel to mark it as done.
-- **Summary table.** Build a table of all notes, grouped by page and top-level frame, on a summary page or the current page. It refreshes when notes change.
+- **Summary table.** Build a table of all notes, grouped by page, with a date for each note, on a summary page or the current page. It refreshes when notes change.
 - **Categories.** UX, UI, Feedback and Decision by default. Rename, recolour, add or remove them.
 
 ## Panel
 
-The window is 440×760. A left rail switches between four tabs, and a footer stays visible.
+The window is 440×760. A left rail switches between five tabs, and a footer stays visible.
 
 | Tab | What it is for |
 | --- | --- |
-| Add | Category, direction, pointer style, distance and note text |
+| Add | Category, direction, pointer style, distance, note text and whether notes show your avatar |
+| Free note | Drag a card onto the canvas to place a note that isn't connected to a layer (or place it in the centre of the view) |
 | Notes | The notes on this page, filtered by status and category. Click a note to select it on the canvas; use the pencil to change its category, pointer style and location |
 | Table | Which pages to include, where to put the table, and build or update it |
 | Categories | Edit the category list |

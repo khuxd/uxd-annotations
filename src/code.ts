@@ -5,9 +5,10 @@
 import type { PluginMessage } from './types';
 import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
-import { addNote, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
-import { loadDistance, loadPointerStyle, saveDistance, savePointerStyle } from './features/preferences';
+import { addFreeNote, addNote, applyAvatarVisibility, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
+import { loadDistance, loadPointerStyle, loadShowAvatar, saveDistance, savePointerStyle, saveShowAvatar } from './features/preferences';
 import { getData, setData } from './features/data';
+import { DROP_KIND, parseNoteDrop } from './features/drop';
 import { buildTable, refreshTables, tableState } from './features/table';
 
 figma.showUI(__html__, { width: 440, height: 760, title: 'UXD Annotations', themeColors: true });
@@ -50,6 +51,7 @@ async function pushState(): Promise<void> {
     selection: figma.currentPage.selection.length === 1 ? { name: figma.currentPage.selection[0].name, type: figma.currentPage.selection[0].type } : undefined,
     distance: await loadDistance(),
     pointerStyle: await loadPointerStyle(),
+    showAvatar: loadShowAvatar(),
   });
 }
 
@@ -176,6 +178,26 @@ async function onNodeChange(event: NodeChangeEvent): Promise<void> {
   }
 }
 
+// A note dragged from the panel's Drop tab onto the canvas. Anything else dropped on the canvas is left to Figma.
+async function placeDroppedNote(text: string, categoryId: string, x: number, y: number, centered: boolean): Promise<void> {
+  try {
+    const card = await addFreeNote(text, categoryId, x, y, centered);
+    figma.currentPage.selection = [card]; // selected so its text can be edited straight away
+    await pushState();
+    scheduleTableRefresh();
+    sendToUI({ type: 'success', message: 'Note placed. Re-attach it to a layer from the Notes tab when ready.' });
+  } catch (err) {
+    sendToUI({ type: 'error', message: err instanceof Error ? err.message : 'Could not place the note.' });
+  }
+}
+
+figma.on('drop', (event: DropEvent) => {
+  const drop = parseNoteDrop(event.dropMetadata);
+  if (!drop) return true;
+  void placeDroppedNote(drop.text, drop.categoryId, event.absoluteX, event.absoluteY, false);
+  return false;
+});
+
 // dynamic-page access: listen on the current page only, and re-bind on page switch.
 function bindPage(): void {
   figma.currentPage.off('nodechange', onNodeChange); // avoid duplicate handlers when revisiting a page
@@ -239,6 +261,18 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       case 'save-pointer-style':
         await savePointerStyle(msg.pointerStyle);
         break;
+      case 'set-show-avatar':
+        saveShowAvatar(msg.show === true);
+        await applyAvatarVisibility(msg.show === true);
+        await pushState();
+        break;
+      case 'place-free-note': {
+        const drop = parseNoteDrop({ kind: DROP_KIND, text: msg.text, categoryId: msg.categoryId });
+        if (!drop) break;
+        const { x, y } = figma.viewport.center;
+        await placeDroppedNote(drop.text, drop.categoryId, x, y, true);
+        break;
+      }
       case 'save-categories':
         await saveCategories(msg.categories);
         await pushState();

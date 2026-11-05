@@ -1,5 +1,4 @@
-// Builds an auto-layout summary table on the canvas, grouped by page (when scanning
-// all pages) and then by top-level frame. "View Note" cells use NODE hyperlinks.
+// Builds an auto-layout summary table on the canvas, grouped by page. "View Note" cells use NODE hyperlinks.
 
 import type { BuildTableOptions, NoteSummary } from '../types';
 import { hexToRgb, progress } from '../utils';
@@ -14,6 +13,7 @@ export const SUMMARY_PAGE_NAME = 'Annotation Summary';
 const FONT: FontName = { family: 'Inter', style: 'Regular' };
 const FONT_BOLD: FontName = { family: 'Inter', style: 'Semi Bold' };
 const COLS = [
+  { label: 'Date', width: 80 },
   { label: 'Category', width: 110 },
   { label: 'Note', width: 400 },
   { label: 'Status', width: 80 },
@@ -32,8 +32,9 @@ function cell(text: string, width: number, bold = false, color?: string, size = 
   return t;
 }
 
-function row(): FrameNode {
+function row(name = 'Row'): FrameNode {
   const r = figma.createFrame();
+  r.name = name;
   r.layoutMode = 'HORIZONTAL';
   r.primaryAxisSizingMode = 'AUTO';
   r.counterAxisSizingMode = 'AUTO';
@@ -145,32 +146,26 @@ async function renderTable(meta: TableMeta, interactive: boolean): Promise<{ cou
   table.cornerRadius = 12;
   table.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
 
-  const showPages = meta.scope === 'all-pages';
   const pageNames = Array.from(new Set(notes.map((n) => n.pageName)));
   table.appendChild(cell(`Annotation Summary — ${notes.length} items`, TABLE_INNER_WIDTH, true, undefined, 14));
-  const header = row();
+  const header = row('Header row');
   COLS.forEach((c) => header.appendChild(cell(c.label, c.width, true, '666666')));
   table.appendChild(header);
 
   for (const pageName of pageNames) {
     const pageNotes = notes.filter((n) => n.pageName === pageName);
-    if (showPages) table.appendChild(cell(`${pageName} (${pageNotes.length})`, TABLE_INNER_WIDTH, true, undefined, 13));
-    // Frames are often all called "Frame", so say whether each one lays out as a row or a column.
-    const frameLabel = (n: NoteSummary): string => (n.frameLayout ? `${n.frameName} (${n.frameLayout})` : n.frameName);
-    const frames = Array.from(new Set(pageNotes.map(frameLabel)));
-    for (const frameName of frames) {
-      table.appendChild(cell(frameName, TABLE_INNER_WIDTH, true, '666666'));
-      for (const n of pageNotes.filter((x) => frameLabel(x) === frameName)) {
-        const cat = categories.find((c) => c.id === n.categoryId);
-        const r = row();
-        r.appendChild(cell(cat ? cat.name : 'Uncategorised', COLS[0].width, true, cat ? cat.color : undefined));
-        r.appendChild(cell(n.text, COLS[1].width));
-        r.appendChild(cell(n.status === 'done' ? '☑ Completed' : '☐ To Do', COLS[2].width));
-        const link = cell('View Note', COLS[3].width, false, '0D99FF');
-        link.setRangeHyperlink(0, link.characters.length, { type: 'NODE', value: n.id });
-        r.appendChild(link);
-        table.appendChild(r);
-      }
+    table.appendChild(cell(`${pageName} (${pageNotes.length})`, TABLE_INNER_WIDTH, true, undefined, 13));
+    for (const n of pageNotes) {
+      const cat = categories.find((c) => c.id === n.categoryId);
+      const r = row();
+      r.appendChild(cell(n.date || '—', COLS[0].width));
+      r.appendChild(cell(cat ? cat.name : 'Uncategorised', COLS[1].width, true, cat ? cat.color : undefined));
+      r.appendChild(cell(n.text, COLS[2].width));
+      r.appendChild(cell(n.status === 'done' ? '☑ Completed' : '☐ To Do', COLS[3].width));
+      const link = cell('View Note', COLS[4].width, false, '0D99FF');
+      link.setRangeHyperlink(0, link.characters.length, { type: 'NODE', value: n.id });
+      r.appendChild(link);
+      table.appendChild(r);
     }
   }
 

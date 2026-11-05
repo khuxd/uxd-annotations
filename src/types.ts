@@ -23,6 +23,8 @@ export interface Category {
 export interface NoteSummary {
   id: string;
   text: string;
+  /** DD/MM/YYYY the note was created, or '' if the card has no date layer. */
+  date: string;
   categoryId: string;
   status: NoteStatus;
   targetId: string;
@@ -47,6 +49,8 @@ export type PluginMessage =
   | { type: 'delete-note'; noteId: string }
   | { type: 'save-distance'; distance: number }
   | { type: 'save-pointer-style'; pointerStyle: PointerStyle }
+  | { type: 'set-show-avatar'; show: boolean }
+  | { type: 'place-free-note'; text: string; categoryId: string }
   | { type: 'set-note-category'; noteId: string; categoryId: string }
   | { type: 'set-note-placement'; noteId: string; direction: Direction; distance: number }
   | { type: 'set-note-pointer-style'; noteId: string; pointerStyle: PointerStyle }
@@ -58,7 +62,7 @@ export type PluginMessage =
 // ── Messages: Plugin → UI ────────────────────────────────────────────────────
 
 export type UIMessage =
-  | { type: 'state'; categories: Category[]; notes: NoteSummary[]; tables: { summaryPage: boolean; currentPage: boolean }; selectionCount: number; selection?: { name: string; type: string }; distance: number; pointerStyle: PointerStyle }
+  | { type: 'state'; categories: Category[]; notes: NoteSummary[]; tables: { summaryPage: boolean; currentPage: boolean }; selectionCount: number; selection?: { name: string; type: string }; distance: number; pointerStyle: PointerStyle; showAvatar: boolean }
   | { type: 'progress'; percent: number; message: string }
   | { type: 'success'; message: string }
   | { type: 'error'; message: string };
