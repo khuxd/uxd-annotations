@@ -23,6 +23,8 @@ export interface Category {
 export interface NoteSummary {
   id: string;
   text: string;
+  /** DD/MM/YYYY the note was created, or '' if the card has no date layer. */
+  date: string;
   categoryId: string;
   status: NoteStatus;
   targetId: string;

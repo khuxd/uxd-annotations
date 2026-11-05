@@ -5,6 +5,7 @@ import type { Category, Direction, NoteStatus, NoteSummary, PointerStyle } from 
 import { hexToRgb, topLevelAncestor } from '../utils';
 import { ensureCategoriesInFile, loadCategories } from './categories';
 import { DATA_NAMESPACE, getData, setData } from './data';
+import { formatDate } from './date';
 import { clampDistance, DEFAULT_NOTE_DISTANCE, loadShowAvatar } from './preferences';
 import { pointerPoints, toPathData } from './pointer';
 import { computeCardPosition, inferPlacement } from './placement';
@@ -38,6 +39,12 @@ export function getNotes(container: FrameNode): FrameNode[] {
 
 function noteText(note: FrameNode): string {
   const t = note.findOne((n) => n.type === 'TEXT' && n.name === 'text') as TextNode | null;
+  return t ? t.characters : '';
+}
+
+/** The date is read from the card's own date layer, so notes made before this was summarised still have one. */
+function noteDate(note: FrameNode): string {
+  const t = note.findOne((n) => n.type === 'TEXT' && n.name === 'date') as TextNode | null;
   return t ? t.characters : '';
 }
 
@@ -140,7 +147,7 @@ async function buildCard(text: string, category: Category): Promise<FrameNode> {
   const accent = hexToRgb(category.color);
   const user = figma.currentUser;
   const author = user ? user.name : 'Unknown author';
-  const stamp = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const stamp = formatDate(new Date());
 
   const card = figma.createFrame();
   card.name = `Note · ${category.name}`;
@@ -303,6 +310,7 @@ export async function summariseNotes(page: PageNode = figma.currentPage): Promis
     out.push({
       id: note.id,
       text: noteText(note),
+      date: noteDate(note),
       categoryId: getData(note, KEY.cat),
       status: statusOf(note),
       targetId: target?.id ?? '',
