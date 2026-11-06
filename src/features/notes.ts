@@ -544,8 +544,27 @@ export async function removeNotesWithMissingTargets(container: FrameNode): Promi
   return removed;
 }
 
+// Resyncs run one at a time: two overlapping runs would both find the same old pointer, both draw a
+// replacement, and leave one of them behind as a duplicate.
+let resyncQueue: Promise<unknown> = Promise.resolve();
+
 /** Self-heal: move each note to keep its offset from its target, then redraw its line. */
-export async function resync(): Promise<number> {
+export function resync(): Promise<number> {
+  const run = resyncQueue.then(resyncNow, resyncNow);
+  resyncQueue = run;
+  return run;
+}
+
+/** Where resync last put each note. A move event at exactly that spot is resync's own write echoing back,
+ *  not the user dragging, so it must not overwrite the note's saved offset. */
+const placedByResync = new Map<string, { x: number; y: number }>();
+
+export function isResyncPosition(note: FrameNode): boolean {
+  const placed = placedByResync.get(note.id);
+  return !!placed && placed.x === note.x && placed.y === note.y;
+}
+
+async function resyncNow(): Promise<number> {
   const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
   if (!container) return 0;
   let fixed = 0;
@@ -560,6 +579,7 @@ export async function resync(): Promise<number> {
       note.y = ny;
       fixed++;
     }
+    placedByResync.set(note.id, { x: note.x, y: note.y });
     const existing = (await figma.getNodeByIdAsync(getData(note, KEY.line))) as SceneNode | null;
     const sig = signature(note, target as SceneNode);
     if (existing && !existing.removed && getData(note, KEY.sig) === sig) continue;
@@ -567,5 +587,8 @@ export async function resync(): Promise<number> {
     setData(note, KEY.line, line.id);
     setData(note, KEY.sig, sig);
   }
+  // Safety net: drop any pointer no note refers to (a missed duplicate). A note whose pointer is gone gets a fresh
+  // one above, so this can't strand a note that comes back via undo.
+  removeOrphanPointers(container);
   return fixed;
 }
