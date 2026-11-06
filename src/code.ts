@@ -5,7 +5,7 @@
 import type { PluginMessage } from './types';
 import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
-import { addFreeNote, addNote, applyAvatarVisibility, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, removeOrphanPointers, resync, setNoteCategory, setNoteInTable, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
+import { addFreeNote, addNote, applyAvatarVisibility, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, isResyncPosition, removeOrphanPointers, resync, setNoteCategory, setNoteInTable, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
 import { loadDistance, loadPointerStyle, loadShowAvatar, saveDistance, savePointerStyle, saveShowAvatar } from './features/preferences';
 import { getData, setData } from './features/data';
 import { DROP_KIND, parseNoteDrop } from './features/drop';
@@ -116,6 +116,7 @@ async function sweep(): Promise<void> {
     } finally {
       syncing = false;
     }
+    void drainEvents(); // changes that arrived during the sweep
   }
   const ids = container ? noteIds(container) : '';
   if (removed > 0 || ids !== tableNoteIds) {
@@ -130,8 +131,23 @@ function scheduleCleanup(): void {
   cleanupTimer = setTimeout(() => void sweep(), CLEANUP_DELAY_MS);
 }
 
+// Events that arrive while a sync is running are queued, not dropped: the last move of a drag usually lands
+// mid-sync, and losing it would leave pointers and notes behind (or snap a dragged note back).
+const pendingEvents: NodeChangeEvent[] = [];
+
 async function onNodeChange(event: NodeChangeEvent): Promise<void> {
+  pendingEvents.push(event);
+  await drainEvents();
+}
+
+async function drainEvents(): Promise<void> {
   if (syncing) return;
+  for (let event = pendingEvents.shift(); event; event = pendingEvents.shift()) {
+    await handleNodeChange(event);
+  }
+}
+
+async function handleNodeChange(event: NodeChangeEvent): Promise<void> {
   const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME) as FrameNode | null;
   const membership = event.nodeChanges.some((c) => c.type === 'DELETE' || c.type === 'CREATE');
   if (!container) {
@@ -163,7 +179,7 @@ async function onNodeChange(event: NodeChangeEvent): Promise<void> {
         if (note) editedNoteIds.add(note.id);
       }
       const moved = change.properties.indexOf('x') !== -1 || change.properties.indexOf('y') !== -1;
-      if (moved && node.type === 'FRAME' && getData(node, KEY.note) === '1') {
+      if (moved && node.type === 'FRAME' && getData(node, KEY.note) === '1' && !isResyncPosition(node)) {
         const target = await figma.getNodeByIdAsync(getData(node, KEY.target));
         const tb = target && 'absoluteBoundingBox' in target ? target.absoluteBoundingBox : null;
         if (tb) {
