@@ -9,6 +9,7 @@ import { parseShowAvatar } from './avatar-pref';
 const DISTANCE_KEY = 'distance';
 const STYLE_KEY = 'pointerStyle';
 const AVATAR_KEY = 'showAvatar';
+const HIDE_DONE_KEY = 'hideDone';
 const LEGACY_DISTANCE_KEY = 'qxr-annotations:distance';
 const LEGACY_STYLE_KEY = 'qxr-annotations:pointer-style';
 
@@ -50,4 +51,13 @@ export function loadShowAvatar(): boolean {
 
 export function saveShowAvatar(show: boolean): void {
   figma.root.setSharedPluginData(DATA_NAMESPACE, AVATAR_KEY, show ? '1' : '0');
+}
+
+/** Stored '1' hides done notes; anything else, including nothing, leaves them visible, so older files are unchanged. */
+export function loadHideDone(): boolean {
+  return figma.root.getSharedPluginData(DATA_NAMESPACE, HIDE_DONE_KEY) === '1';
+}
+
+export function saveHideDone(hide: boolean): void {
+  figma.root.setSharedPluginData(DATA_NAMESPACE, HIDE_DONE_KEY, hide ? '1' : '0');
 }

@@ -7,7 +7,7 @@ import { ensureCategoriesInFile, loadCategories } from './categories';
 import { DATA_NAMESPACE, getData, setData } from './data';
 import { parseInTable } from './table-pref';
 import { formatDate, legacyToDayFirst } from './date';
-import { clampDistance, DEFAULT_NOTE_DISTANCE, loadShowAvatar } from './preferences';
+import { clampDistance, DEFAULT_NOTE_DISTANCE, loadHideDone, loadShowAvatar } from './preferences';
 import { pointerPoints, toPathData } from './pointer';
 import { computeCardPosition, inferPlacement } from './placement';
 
@@ -21,6 +21,7 @@ async function getContainer(): Promise<FrameNode> {
   const existing = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME && n.type === 'FRAME') as FrameNode | null;
   if (existing) {
     existing.locked = false; // a locked parent would stop users editing note text on the canvas
+    existing.visible = true; // adding a note to a page whose notes are hidden brings them back, so the new one isn't invisible
     return existing;
   }
   const f = figma.createFrame();
@@ -56,6 +57,28 @@ function inTableOf(note: FrameNode): boolean {
 
 function statusOf(note: FrameNode): NoteStatus {
   return getData(note, KEY.status) === 'done' ? 'done' : 'todo';
+}
+
+/** True when the "hide done notes" setting is on and this note is done. */
+function isHiddenAsDone(note: FrameNode): boolean {
+  return loadHideDone() && statusOf(note) === 'done';
+}
+
+/** Show or hide one note and its pointer according to the "hide done notes" setting. */
+async function applyDoneVisibility(note: FrameNode): Promise<void> {
+  const visible = !isHiddenAsDone(note);
+  note.visible = visible;
+  const line = await figma.getNodeByIdAsync(getData(note, KEY.line));
+  if (line && !line.removed && 'visible' in line) line.visible = visible;
+}
+
+/** Apply the "hide done notes" setting to every note in the file. Hidden, not deleted, so they can come back. */
+export async function applyDoneVisibilityAll(): Promise<void> {
+  await figma.loadAllPagesAsync();
+  for (const page of figma.root.children) {
+    const notes = await findNotes(page);
+    for (const note of notes) await applyDoneVisibility(note);
+  }
 }
 
 /** Geometry fingerprint: lets resync skip untouched notes, so its own writes can't retrigger it forever. */
@@ -98,6 +121,7 @@ function drawLine(container: FrameNode, note: FrameNode, target: SceneNode, exis
   const group = figma.group([line, dot], container, 0);
   group.name = 'pointer';
   group.locked = true;
+  group.visible = !isHiddenAsDone(note); // a redrawn pointer must not reappear next to a hidden done note
   return group;
 }
 
@@ -383,6 +407,7 @@ export async function setStatus(noteId: string, status: NoteStatus): Promise<voi
   if (!note || note.type !== 'FRAME') return;
   setData(note, KEY.status, status);
   note.opacity = status === 'done' ? 0.5 : 1;
+  await applyDoneVisibility(note as FrameNode);
 }
 
 /** Include or leave out one note when the summary table is built. The note itself is unchanged. */
@@ -465,6 +490,27 @@ export async function attachNote(noteId: string): Promise<void> {
   setData(note, KEY.sig, signature(note, target));
 }
 
+/** Whether the current page's notes and pointers are hidden. Read from the container frame itself, so the
+ *  state lives in the file and survives reopening the plugin. A page with no notes is not hidden. */
+export function areNotesHidden(): boolean {
+  const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME && n.type === 'FRAME') as FrameNode | null;
+  return !!container && !container.visible;
+}
+
+/** Hide or show every note and pointer on the current page. Hidden, not deleted: the notes keep their data,
+ *  still sync, and still appear in the panel and summary table. */
+export function setNotesHidden(hidden: boolean): void {
+  const container = figma.currentPage.findChild((n) => n.name === CONTAINER_NAME && n.type === 'FRAME') as FrameNode | null;
+  if (!container) return;
+  if (hidden) figma.currentPage.selection = figma.currentPage.selection.filter((n) => !isWithin(n, container)); // a hidden layer can't stay selected
+  container.visible = !hidden;
+}
+
+function isWithin(node: BaseNode, ancestor: BaseNode): boolean {
+  for (let p: BaseNode | null = node; p; p = p.parent) if (p === ancestor) return true;
+  return false;
+}
+
 /** Show or hide the avatar on every note in the file. Hidden, not deleted, so it can come back. */
 export async function applyAvatarVisibility(show: boolean): Promise<void> {
   await figma.loadAllPagesAsync();
@@ -496,6 +542,10 @@ export async function setNotePointerStyle(noteId: string, style: PointerStyle): 
 export async function gotoNote(noteId: string): Promise<void> {
   const note = await figma.getNodeByIdAsync(noteId);
   if (note && note.type === 'FRAME') {
+    if (note.parent && note.parent.type === 'FRAME' && note.parent.name === CONTAINER_NAME) note.parent.visible = true; // can't go to a hidden note
+    note.visible = true; // a done note hidden by the setting is shown when the user asks to go to it
+    const line = await figma.getNodeByIdAsync(getData(note, KEY.line));
+    if (line && !line.removed && 'visible' in line) line.visible = true;
     figma.viewport.scrollAndZoomIntoView([note]);
     figma.currentPage.selection = [note]; // select it so the text can be edited straight on the canvas
   }

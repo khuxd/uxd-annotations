@@ -238,6 +238,11 @@
         </div>
         <p class="hint" id="done-hint">Tick the box on a note to mark it as done.</p>
         <div id="notes" class="listbox" role="list" aria-live="polite"></div>
+        <div class="field">
+          <label><input type="checkbox" id="hide-notes" /> Hide notes on this page</label>
+          <label><input type="checkbox" id="hide-done" /> Hide done notes</label>
+          <p class="hint">Hides notes and pointer lines on the canvas. Nothing is deleted. Done notes come back when you untick it.</p>
+        </div>
         <div class="tools">
           <button id="resync-btn" class="btn" type="button" title="Move every note back to its saved distance from its layer">Re-anchor notes</button>
         </div>
@@ -555,6 +560,8 @@
   $('distance-range').addEventListener('change', commitDistance);
   document.querySelectorAll('input[name=pstyle]').forEach((r) => r.addEventListener('change', () => post({ type: 'save-pointer-style', pointerStyle: selectedPointerStyle() })));
   $('show-avatar').addEventListener('change', (e) => post({ type: 'set-show-avatar', show: e.target.checked }));
+  $('hide-notes').addEventListener('change', (e) => post({ type: 'set-notes-hidden', hidden: e.target.checked }));
+  $('hide-done').addEventListener('change', (e) => post({ type: 'set-hide-done', hide: e.target.checked }));
   $('table-btn').addEventListener('click', () => post({ type: 'build-table', options: {
     scope: document.querySelector('input[name=tscope]:checked').value,
     destination: document.querySelector('input[name=tdest]:checked').value,
@@ -575,6 +582,8 @@
         distanceLoaded = true;
       }
       $('show-avatar').checked = msg.showAvatar;
+      $('hide-notes').checked = msg.notesHidden;
+      $('hide-done').checked = msg.hideDone;
       draftCats = msg.categories.map((c) => Object.assign({}, c));
       renderFooter(); addCat.render(); renderDrop(); renderFilterCats(); renderNotes(); renderCats(); renderTableButton();
     } else if (msg.type === 'success') { setStatus('success', msg.message); if (msg.message === 'Note added.') { $('text').value = ''; showTab('notes'); } }

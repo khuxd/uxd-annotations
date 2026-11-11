@@ -5,8 +5,8 @@
 import type { PluginMessage } from './types';
 import { sendToUI } from './utils';
 import { loadCategories, saveCategories } from './features/categories';
-import { addFreeNote, addNote, applyAvatarVisibility, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, isResyncPosition, removeOrphanPointers, resync, setNoteCategory, setNoteInTable, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
-import { loadDistance, loadPointerStyle, loadShowAvatar, saveDistance, savePointerStyle, saveShowAvatar } from './features/preferences';
+import { addFreeNote, addNote, applyAvatarVisibility, applyDoneVisibilityAll, areNotesHidden, setNotesHidden, attachNote, deleteNote, getNotes, gotoNote, KEY, removeNotesWithMissingTargets, isResyncPosition, removeOrphanPointers, resync, setNoteCategory, setNoteInTable, setNotePlacement, setNotePointerStyle, setStatus, summariseNotes, CONTAINER_NAME } from './features/notes';
+import { loadDistance, loadPointerStyle, loadHideDone, loadShowAvatar, saveDistance, saveHideDone, savePointerStyle, saveShowAvatar } from './features/preferences';
 import { getData, setData } from './features/data';
 import { DROP_KIND, parseNoteDrop } from './features/drop';
 import { buildTable, refreshTables, tableState } from './features/table';
@@ -52,6 +52,8 @@ async function pushState(): Promise<void> {
     distance: await loadDistance(),
     pointerStyle: await loadPointerStyle(),
     showAvatar: loadShowAvatar(),
+    notesHidden: areNotesHidden(),
+    hideDone: loadHideDone(),
   });
 }
 
@@ -285,6 +287,15 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       case 'set-show-avatar':
         saveShowAvatar(msg.show === true);
         await applyAvatarVisibility(msg.show === true);
+        await pushState();
+        break;
+      case 'set-hide-done':
+        saveHideDone(msg.hide === true);
+        await applyDoneVisibilityAll();
+        await pushState();
+        break;
+      case 'set-notes-hidden':
+        setNotesHidden(msg.hidden === true);
         await pushState();
         break;
       case 'place-free-note': {

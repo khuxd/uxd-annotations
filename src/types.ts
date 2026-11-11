@@ -52,6 +52,8 @@ export type PluginMessage =
   | { type: 'save-distance'; distance: number }
   | { type: 'save-pointer-style'; pointerStyle: PointerStyle }
   | { type: 'set-show-avatar'; show: boolean }
+  | { type: 'set-notes-hidden'; hidden: boolean }
+  | { type: 'set-hide-done'; hide: boolean }
   | { type: 'set-note-in-table'; noteId: string; include: boolean }
   | { type: 'place-free-note'; text: string; categoryId: string }
   | { type: 'set-note-category'; noteId: string; categoryId: string }
@@ -65,7 +67,7 @@ export type PluginMessage =
 // ── Messages: Plugin → UI ────────────────────────────────────────────────────
 
 export type UIMessage =
-  | { type: 'state'; categories: Category[]; notes: NoteSummary[]; tables: { summaryPage: boolean; currentPage: boolean }; selectionCount: number; selection?: { name: string; type: string }; distance: number; pointerStyle: PointerStyle; showAvatar: boolean }
+  | { type: 'state'; categories: Category[]; notes: NoteSummary[]; tables: { summaryPage: boolean; currentPage: boolean }; selectionCount: number; selection?: { name: string; type: string }; distance: number; pointerStyle: PointerStyle; showAvatar: boolean; notesHidden: boolean; hideDone: boolean }
   | { type: 'progress'; percent: number; message: string }
   | { type: 'success'; message: string }
   | { type: 'error'; message: string };
